@@ -7,10 +7,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    
     <style>
         * {
             margin: 0;
@@ -81,7 +77,6 @@
             gap: 10px;
         }
 
-        /* Status Cards */
         .status-box {
             background: #f8f9fa;
             border-radius: 12px;
@@ -154,7 +149,6 @@
             50% { opacity: 0.6; transform: scale(1.1); }
         }
 
-        /* Current Reading */
         .current-value {
             font-size: 4em;
             font-weight: bold;
@@ -199,7 +193,6 @@
             color: #2d5016;
         }
 
-        /* Mode Controls */
         .mode-selector {
             display: flex;
             gap: 10px;
@@ -231,7 +224,6 @@
             box-shadow: 0 5px 15px rgba(74, 124, 35, 0.3);
         }
 
-        /* Manual Control */
         .manual-control {
             background: #fff3cd;
             border: 2px solid #ffc107;
@@ -285,61 +277,6 @@
             transform: scale(1.05);
         }
 
-        .pump-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* Threshold Settings */
-        .threshold-group {
-            margin: 20px 0;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-        }
-
-        .threshold-label {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            font-weight: 600;
-            color: #495057;
-        }
-
-        .threshold-value {
-            color: #4a7c23;
-            font-size: 1.2em;
-        }
-
-        input[type="range"] {
-            width: 100%;
-            height: 8px;
-            border-radius: 5px;
-            background: #dee2e6;
-            outline: none;
-            -webkit-appearance: none;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #4a7c23;
-            cursor: pointer;
-        }
-
-        input[type="range"]::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #4a7c23;
-            cursor: pointer;
-            border: none;
-        }
-
-        /* Alerts */
         .alert {
             padding: 15px 20px;
             margin: 15px 0;
@@ -374,7 +311,6 @@
             border-left: 5px solid #17a2b8;
         }
 
-        /* Time Selector */
         .time-selector {
             display: flex;
             gap: 10px;
@@ -402,7 +338,6 @@
             color: white;
         }
 
-        /* Chart */
         .chart-container {
             position: relative;
             height: 350px;
@@ -412,7 +347,6 @@
             border-radius: 10px;
         }
 
-        /* Table */
         .data-table {
             max-height: 400px;
             overflow-y: auto;
@@ -445,7 +379,6 @@
             background: #f8f9fa;
         }
 
-        /* Export Button */
         .export-btn {
             width: 100%;
             padding: 15px;
@@ -467,49 +400,6 @@
             background: #218838;
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
-        }
-
-        /* Firebase Config Notice */
-        .config-notice {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-
-        .config-notice h3 {
-            color: #856404;
-            margin-bottom: 10px;
-        }
-
-        .config-notice code {
-            background: #fff;
-            padding: 2px 6px;
-            border-radius: 3px;
-            color: #dc3545;
-            font-weight: bold;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: #6c757d;
-        }
-
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #4a7c23;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
@@ -536,28 +426,28 @@
         <div class="header">
             <h1>🌱 Sistem Monitoring Kelembaban Tanah</h1>
             <p>Penyiraman Bawang Merah Otomatis - Desa Purworejo</p>
-            <p style="font-size: 0.9em; margin-top: 10px;">Real-time IoT Monitoring dengan Firebase</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">Real-time IoT Monitoring System (Demo Mode)</p>
         </div>
 
         <div class="dashboard">
-            <!-- Status Pompa & Sistem -->
             <div class="card">
                 <h2>⚙️ Status Sistem</h2>
                 
                 <div class="status-box">
                     <div class="status-header">Status Pompa</div>
-                    <div class="status-value" id="pumpStatusDisplay">--</div>
+                    <div class="status-value" id="pumpStatusDisplay">OFF</div>
                     <div class="status-indicator offline" id="pumpIndicator">
                         <div class="status-dot offline"></div>
-                        <span>Offline</span>
+                        <span>Pompa Mati</span>
                     </div>
                 </div>
 
                 <div class="status-box">
                     <div class="status-header">Mode Operasi</div>
-                    <div class="status-value" id="modeDisplay">--</div>
-                    <div class="status-indicator info" id="modeIndicator">
-                        <span>⚡ Loading...</span>
+                    <div class="status-value" id="modeDisplay">Otomatis</div>
+                    <div class="status-indicator online" id="modeIndicator">
+                        <div class="status-dot online"></div>
+                        <span>Mode Otomatis Aktif</span>
                     </div>
                 </div>
 
@@ -567,7 +457,6 @@
                 </div>
             </div>
 
-            <!-- Kelembaban Sensor -->
             <div class="card">
                 <h2>💧 Kelembaban Tanah Real-time</h2>
                 
@@ -590,12 +479,11 @@
                 <div id="moistureAlert" style="margin-top: 20px;"></div>
             </div>
 
-            <!-- Kontrol Mode -->
             <div class="card">
                 <h2>🎯 Mode Operasi</h2>
                 
                 <div class="mode-selector">
-                    <button class="mode-btn" id="autoModeBtn" onclick="setMode('otomatis')">
+                    <button class="mode-btn active" id="autoModeBtn" onclick="setMode('otomatis')">
                         ⚡ Otomatis
                     </button>
                     <button class="mode-btn" id="manualModeBtn" onclick="setMode('manual')">
@@ -603,11 +491,11 @@
                     </button>
                 </div>
 
-                <div id="modeDescription" class="alert info">
-                    <span>ℹ️ Pilih mode operasi sistem penyiraman</span>
+                <div id="modeDescription" class="alert success">
+                    <span>⚡</span>
+                    <span><strong>Mode Otomatis:</strong> Sistem akan menyiram otomatis berdasarkan sensor kelembaban</span>
                 </div>
 
-                <!-- Manual Control (hidden by default) -->
                 <div class="manual-control" id="manualControlPanel" style="display: none;">
                     <h3>🎮 Kontrol Manual Pompa</h3>
                     <p style="color: #856404; margin-bottom: 15px; font-size: 0.9em;">Kendalikan pompa secara manual ON/OFF</p>
@@ -622,47 +510,21 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Pengaturan Threshold
-            
-            <div class="card">
-                <h2>⚙️ Pengaturan Threshold</h2>
-                
-                <div class="threshold-group">
-                    <div class="threshold-label">
-                        <span>Batas Minimum</span>
-                        <span class="threshold-value"><span id="minLabel">30</span>%</span>
-                    </div>
-                    <input type="range" min="0" max="100" value="30" id="minThreshold" 
-                           oninput="updateThreshold('min', this.value)">
-                </div>
-
-                <div class="threshold-group">
-                    <div class="threshold-label">
-                        <span>Batas Maksimum</span>
-                        <span class="threshold-value"><span id="maxLabel">70</span>%</span>
-                    </div>
-                    <input type="range" min="0" max="100" value="70" id="maxThreshold"
-                           oninput="updateThreshold('max', this.value)">
-                </div>
-
-                <div class="alert warning">
-                    <span>⚠️</span>
-                    <span>Pompa otomatis aktif jika kelembaban &lt; <span id="minThresholdDisplay">30</span>%</span>
-                </div>
-            </div> -->
         </div>
 
-        <!-- Chart -->
-        <div class="card">
+        <div class="card" style="margin-bottom: 30px;">
             <h2>📊 Grafik Kelembaban Tanah</h2>
             
             <div class="time-selector">
-                <button class="time-btn active" onclick="changeTimeRange('realtime')">Real-time</button>
-                <button class="time-btn" onclick="changeTimeRange('minute')">Per Menit</button>
+                <button class="time-btn active" onclick="changeTimeRange('minute')">Per Menit</button>
                 <button class="time-btn" onclick="changeTimeRange('hour')">Per Jam</button>
                 <button class="time-btn" onclick="changeTimeRange('day')">Per Hari</button>
                 <button class="time-btn" onclick="changeTimeRange('week')">Per Minggu</button>
+            </div>
+
+            <div id="chartInfo" class="alert info" style="margin: 15px 0;">
+                <span>📊</span>
+                <span id="chartInfoText">Menampilkan data per menit (1 jam terakhir)</span>
             </div>
 
             <div class="chart-container">
@@ -670,9 +532,7 @@
             </div>
         </div>
 
-        <!-- Data Table -
-         ->
-        <div class="card">
+        <div class="card" style="margin-top: 30px;">
             <h2>📋 Log Data Penyiraman</h2>
             
             <button class="export-btn" onclick="exportToExcel()">
@@ -692,64 +552,23 @@
                             <th>Mode</th>
                         </tr>
                     </thead>
-                    <tbody id="tableBody">
-                        <tr>
-                            <td colspan="6" class="loading">
-                                <div class="spinner"></div>
-                                Memuat data dari Firebase...
-                            </td>
-                        </tr>
-                    </tbody>
+                    <tbody id="tableBody"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
     <script>
-        // ========================================
-        // FIREBASE CONFIGURATION
-        // ========================================
-        // GANTI dengan konfigurasi Firebase Anda sendiri!
-        const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-
-        // Initialize Firebase
-        let database;
-        let isFirebaseConfigured = false;
-
-        try {
-            firebase.initializeApp(firebaseConfig);
-            database = firebase.database();
-            isFirebaseConfigured = true;
-            console.log('✅ Firebase initialized successfully');
-        } catch (error) {
-            console.warn('⚠️ Firebase not configured. Using demo mode.');
-            isFirebaseConfigured = false;
-        }
-
-        // ========================================
-        // GLOBAL VARIABLES
-        // ========================================
         let moistureData = [];
         let chart;
         let currentMode = 'otomatis';
         let pumpStatus = 'OFF';
         let minThresholdValue = 30;
         let maxThresholdValue = 70;
-        let timeRange = 'realtime';
+        let timeRange = 'minute';
         let sensor1 = 0;
         let sensor2 = 0;
 
-        // ========================================
-        // INITIALIZE CHART
-        // ========================================
         const ctx = document.getElementById('moistureChart').getContext('2d');
         chart = new Chart(ctx, {
             type: 'line',
@@ -813,74 +632,6 @@
             }
         });
 
-        // ========================================
-        // FIREBASE LISTENERS
-        // ========================================
-        function setupFirebaseListeners() {
-            if (!isFirebaseConfigured) {
-                console.log('🔧 Demo mode - using simulated data');
-                startDemoMode();
-                return;
-            }
-
-            // Listen to sensor data
-            database.ref('sensor').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    sensor1 = data.sensor1 || 0;
-                    sensor2 = data.sensor2 || 0;
-                    
-                    const avgMoisture = Math.round((sensor1 + sensor2) / 2);
-                    
-                    // Store data point
-                    const dataPoint = {
-                        timestamp: new Date(),
-                        sensor1: sensor1,
-                        sensor2: sensor2,
-                        moisture: avgMoisture,
-                        pumpStatus: pumpStatus,
-                        mode: currentMode
-                    };
-                    
-                    moistureData.push(dataPoint);
-                    if (moistureData.length > 100) {
-                        moistureData.shift();
-                    }
-                    
-                    updateDisplay();
-                }
-            });
-
-            // Listen to pump status
-            database.ref('pump/status').on('value', (snapshot) => {
-                pumpStatus = snapshot.val() || 'OFF';
-                updatePumpDisplay();
-            });
-
-            // Listen to mode
-            database.ref('mode').on('value', (snapshot) => {
-                currentMode = snapshot.val() || 'otomatis';
-                updateModeDisplay();
-            });
-
-            // Listen to threshold settings
-            database.ref('settings/threshold').on('value', (snapshot) => {
-                const threshold = snapshot.val();
-                if (threshold) {
-                    minThresholdValue = threshold.min || 30;
-                    maxThresholdValue = threshold.max || 70;
-                    document.getElementById('minThreshold').value = minThresholdValue;
-                    document.getElementById('maxThreshold').value = maxThresholdValue;
-                    document.getElementById('minLabel').textContent = minThresholdValue;
-                    document.getElementById('maxLabel').textContent = maxThresholdValue;
-                    document.getElementById('minThresholdDisplay').textContent = minThresholdValue;
-                }
-            });
-        }
-
-        // ========================================
-        // DEMO MODE (for testing without Firebase)
-        // ========================================
         function startDemoMode() {
             setInterval(() => {
                 sensor1 = Math.floor(Math.random() * 40) + 30;
@@ -888,7 +639,6 @@
                 
                 const avgMoisture = Math.round((sensor1 + sensor2) / 2);
                 
-                // Auto pump control in demo mode
                 if (currentMode === 'otomatis') {
                     pumpStatus = avgMoisture < minThresholdValue ? 'ON' : 'OFF';
                 }
@@ -911,21 +661,16 @@
             }, 3000);
         }
 
-        // ========================================
-        // UPDATE DISPLAY FUNCTIONS
-        // ========================================
         function updateDisplay() {
             if (moistureData.length === 0) return;
             
             const latest = moistureData[moistureData.length - 1];
             
-            // Update sensor values
             document.getElementById('sensor1Value').textContent = latest.sensor1;
             document.getElementById('sensor2Value').textContent = latest.sensor2;
             document.getElementById('avgMoisture').textContent = latest.moisture + '%';
             document.getElementById('lastUpdate').textContent = formatDateTime(latest.timestamp);
             
-            // Update alert
             const alertDiv = document.getElementById('moistureAlert');
             if (latest.moisture < minThresholdValue) {
                 alertDiv.className = 'alert danger';
@@ -968,7 +713,6 @@
             const autoBtn = document.getElementById('autoModeBtn');
             const manualBtn = document.getElementById('manualModeBtn');
             
-            // Update buttons
             autoBtn.classList.remove('active');
             manualBtn.classList.remove('active');
             
@@ -991,9 +735,6 @@
             }
         }
 
-        // ========================================
-        // CHART UPDATE
-        // ========================================
         function updateChart() {
             const displayData = getDataByTimeRange();
             
@@ -1022,12 +763,26 @@
             timeRange = range;
             document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
+            
+            const infoText = document.getElementById('chartInfoText');
+            switch(range) {
+                case 'minute':
+                    infoText.textContent = 'Menampilkan data per menit (1 jam terakhir)';
+                    break;
+                case 'hour':
+                    infoText.textContent = 'Menampilkan data per jam (24 jam terakhir)';
+                    break;
+                case 'day':
+                    infoText.textContent = 'Menampilkan data per hari (30 hari terakhir)';
+                    break;
+                case 'week':
+                    infoText.textContent = 'Menampilkan data per minggu (12 minggu terakhir)';
+                    break;
+            }
+            
             updateChart();
         }
 
-        // ========================================
-        // TABLE UPDATE
-        // ========================================
         function updateTable() {
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
@@ -1035,7 +790,7 @@
             const recentData = moistureData.slice(-30).reverse();
             
             if (recentData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="loading">Belum ada data</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #6c757d;">Belum ada data</td></tr>';
                 return;
             }
             
@@ -1055,18 +810,8 @@
             });
         }
 
-        // ========================================
-        // CONTROL FUNCTIONS
-        // ========================================
         function setMode(mode) {
             currentMode = mode;
-            
-            if (isFirebaseConfigured) {
-                database.ref('mode').set(mode)
-                    .then(() => console.log('Mode updated:', mode))
-                    .catch((error) => console.error('Error updating mode:', error));
-            }
-            
             updateModeDisplay();
         }
 
@@ -1077,37 +822,9 @@
             }
             
             pumpStatus = status;
-            
-            if (isFirebaseConfigured) {
-                database.ref('pump/status').set(status)
-                    .then(() => console.log('Pump status updated:', status))
-                    .catch((error) => console.error('Error updating pump:', error));
-            }
-            
             updatePumpDisplay();
         }
 
-        function updateThreshold(type, value) {
-            if (type === 'min') {
-                minThresholdValue = parseInt(value);
-                document.getElementById('minLabel').textContent = value;
-                document.getElementById('minThresholdDisplay').textContent = value;
-            } else {
-                maxThresholdValue = parseInt(value);
-                document.getElementById('maxLabel').textContent = value;
-            }
-            
-            if (isFirebaseConfigured) {
-                database.ref('settings/threshold').set({
-                    min: minThresholdValue,
-                    max: maxThresholdValue
-                });
-            }
-        }
-
-        // ========================================
-        // EXPORT TO EXCEL
-        // ========================================
         function exportToExcel() {
             const ws_data = [['Waktu', 'Sensor 1 (%)', 'Sensor 2 (%)', 'Rata-rata (%)', 'Status Pompa', 'Mode']];
             
@@ -1130,9 +847,6 @@
             XLSX.writeFile(wb, fileName);
         }
 
-        // ========================================
-        // HELPER FUNCTIONS
-        // ========================================
         function formatTime(date) {
             return date.toLocaleTimeString('id-ID');
         }
@@ -1141,11 +855,8 @@
             return date.toLocaleString('id-ID');
         }
 
-        // ========================================
-        // INITIALIZE
-        // ========================================
         window.onload = function() {
-            setupFirebaseListeners();
+            startDemoMode();
         };
     </script>
 </body>
