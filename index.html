@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Kelembaban Tanah - Bawang Merah</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #2d5016 0%, #4a7c23 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            background: rgba(0,0,0,0.2);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card h2 {
+            color: #2d5016;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+            border-bottom: 3px solid #4a7c23;
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Status Cards */
+        .status-box {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 15px 0;
+            border-left: 5px solid #4a7c23;
+        }
+
+        .status-header {
+            color: #6c757d;
+            font-size: 0.9em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .status-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #2d5016;
+        }
+
+        .status-value.on {
+            color: #28a745;
+        }
+
+        .status-value.off {
+            color: #dc3545;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .status-indicator.online {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-indicator.offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.online {
+            background: #28a745;
+        }
+
+        .status-dot.offline {
+            background: #dc3545;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.1); }
+        }
+
+        /* Current Reading */
+        .current-value {
+            font-size: 4em;
+            font-weight: bold;
+            color: #4a7c23;
+            text-align: center;
+            margin: 30px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .value-label {
+            text-align: center;
+            color: #666;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        .sensor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .sensor-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid #dee2e6;
+        }
+
+        .sensor-label {
+            font-size: 0.85em;
+            color: #6c757d;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .sensor-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2d5016;
+        }
+
+        /* Mode Controls */
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 15px;
+            border: 3px solid #4a7c23;
+            background: white;
+            color: #4a7c23;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1em;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        .mode-btn:hover {
+            background: #f8f9fa;
+            transform: scale(1.02);
+        }
+
+        .mode-btn.active {
+            background: #4a7c23;
+            color: white;
+            box-shadow: 0 5px 15px rgba(74, 124, 35, 0.3);
+        }
+
+        /* Manual Control */
+        .manual-control {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .manual-control h3 {
+            color: #856404;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pump-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .pump-btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        .pump-btn.on {
+            background: #28a745;
+            color: white;
+        }
+
+        .pump-btn.on:hover {
+            background: #218838;
+            transform: scale(1.05);
+        }
+
+        .pump-btn.off {
+            background: #dc3545;
+            color: white;
+        }
+
+        .pump-btn.off:hover {
+            background: #c82333;
+            transform: scale(1.05);
+        }
+
+        .pump-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Threshold Settings */
+        .threshold-group {
+            margin: 20px 0;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .threshold-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .threshold-value {
+            color: #4a7c23;
+            font-size: 1.2em;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #dee2e6;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4a7c23;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4a7c23;
+            cursor: pointer;
+            border: none;
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 10px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert.warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 5px solid #ffc107;
+        }
+
+        .alert.danger {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 5px solid #dc3545;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 5px solid #28a745;
+        }
+
+        .alert.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 5px solid #17a2b8;
+        }
+
+        /* Time Selector */
+        .time-selector {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .time-btn {
+            padding: 10px 20px;
+            border: 2px solid #4a7c23;
+            background: white;
+            color: #4a7c23;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .time-btn:hover {
+            background: #f8f9fa;
+        }
+
+        .time-btn.active {
+            background: #4a7c23;
+            color: white;
+        }
+
+        /* Chart */
+        .chart-container {
+            position: relative;
+            height: 350px;
+            margin: 20px 0;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        /* Table */
+        .data-table {
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 20px 0;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        th {
+            background: #4a7c23;
+            color: white;
+            position: sticky;
+            top: 0;
+            font-weight: 600;
+            z-index: 10;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* Export Button */
+        .export-btn {
+            width: 100%;
+            padding: 15px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .export-btn:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        /* Firebase Config Notice */
+        .config-notice {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .config-notice h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .config-notice code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4a7c23;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            .current-value {
+                font-size: 3em;
+            }
+
+            .sensor-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌱 Sistem Monitoring Kelembaban Tanah</h1>
+            <p>Penyiraman Bawang Merah Otomatis - Desa Purworejo</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">Real-time IoT Monitoring dengan Firebase</p>
+        </div>
+
+        <!-- Firebase Configuration Notice -->
+        <div class="config-notice">
+            <h3>⚙️ Konfigurasi Firebase</h3>
+            <p>Sistem ini menggunakan Firebase Realtime Database. Silakan ganti konfigurasi Firebase di bagian JavaScript dengan kredensial project Anda sendiri.</p>
+            <p style="margin-top: 10px;">Path data: <code>/sensor/moisture</code>, <code>/pump/status</code>, <code>/mode</code></p>
+        </div>
+
+        <div class="dashboard">
+            <!-- Status Pompa & Sistem -->
+            <div class="card">
+                <h2>⚙️ Status Sistem</h2>
+                
+                <div class="status-box">
+                    <div class="status-header">Status Pompa</div>
+                    <div class="status-value" id="pumpStatusDisplay">--</div>
+                    <div class="status-indicator offline" id="pumpIndicator">
+                        <div class="status-dot offline"></div>
+                        <span>Offline</span>
+                    </div>
+                </div>
+
+                <div class="status-box">
+                    <div class="status-header">Mode Operasi</div>
+                    <div class="status-value" id="modeDisplay">--</div>
+                    <div class="status-indicator info" id="modeIndicator">
+                        <span>⚡ Loading...</span>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: #e7f5ff; border-radius: 10px; border-left: 4px solid #17a2b8;">
+                    <strong style="color: #0c5460;">🕐 Terakhir Update:</strong>
+                    <div id="lastUpdate" style="color: #0c5460; margin-top: 5px;">--</div>
+                </div>
+            </div>
+
+            <!-- Kelembaban Sensor -->
+            <div class="card">
+                <h2>💧 Kelembaban Tanah Real-time</h2>
+                
+                <div class="sensor-grid">
+                    <div class="sensor-card">
+                        <div class="sensor-label">Sensor 1</div>
+                        <div class="sensor-value" id="sensor1Value">--</div>
+                        <div style="font-size: 0.8em; color: #6c757d; margin-top: 5px;">%</div>
+                    </div>
+                    <div class="sensor-card">
+                        <div class="sensor-label">Sensor 2</div>
+                        <div class="sensor-value" id="sensor2Value">--</div>
+                        <div style="font-size: 0.8em; color: #6c757d; margin-top: 5px;">%</div>
+                    </div>
+                </div>
+
+                <div class="current-value" id="avgMoisture">--</div>
+                <div class="value-label">Rata-rata Kelembaban (%)</div>
+
+                <div id="moistureAlert" style="margin-top: 20px;"></div>
+            </div>
+
+            <!-- Kontrol Mode -->
+            <div class="card">
+                <h2>🎯 Mode Operasi</h2>
+                
+                <div class="mode-selector">
+                    <button class="mode-btn" id="autoModeBtn" onclick="setMode('otomatis')">
+                        ⚡ Otomatis
+                    </button>
+                    <button class="mode-btn" id="manualModeBtn" onclick="setMode('manual')">
+                        🎮 Manual
+                    </button>
+                </div>
+
+                <div id="modeDescription" class="alert info">
+                    <span>ℹ️ Pilih mode operasi sistem penyiraman</span>
+                </div>
+
+                <!-- Manual Control (hidden by default) -->
+                <div class="manual-control" id="manualControlPanel" style="display: none;">
+                    <h3>🎮 Kontrol Manual Pompa</h3>
+                    <p style="color: #856404; margin-bottom: 15px; font-size: 0.9em;">Kendalikan pompa secara manual ON/OFF</p>
+                    
+                    <div class="pump-controls">
+                        <button class="pump-btn on" onclick="controlPump('ON')">
+                            ▶ NYALAKAN
+                        </button>
+                        <button class="pump-btn off" onclick="controlPump('OFF')">
+                            ⏹ MATIKAN
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pengaturan Threshold -->
+            <div class="card">
+                <h2>⚙️ Pengaturan Threshold</h2>
+                
+                <div class="threshold-group">
+                    <div class="threshold-label">
+                        <span>Batas Minimum</span>
+                        <span class="threshold-value"><span id="minLabel">30</span>%</span>
+                    </div>
+                    <input type="range" min="0" max="100" value="30" id="minThreshold" 
+                           oninput="updateThreshold('min', this.value)">
+                </div>
+
+                <div class="threshold-group">
+                    <div class="threshold-label">
+                        <span>Batas Maksimum</span>
+                        <span class="threshold-value"><span id="maxLabel">70</span>%</span>
+                    </div>
+                    <input type="range" min="0" max="100" value="70" id="maxThreshold"
+                           oninput="updateThreshold('max', this.value)">
+                </div>
+
+                <div class="alert warning">
+                    <span>⚠️</span>
+                    <span>Pompa otomatis aktif jika kelembaban &lt; <span id="minThresholdDisplay">30</span>%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="card">
+            <h2>📊 Grafik Kelembaban Tanah</h2>
+            
+            <div class="time-selector">
+                <button class="time-btn active" onclick="changeTimeRange('realtime')">Real-time</button>
+                <button class="time-btn" onclick="changeTimeRange('minute')">Per Menit</button>
+                <button class="time-btn" onclick="changeTimeRange('hour')">Per Jam</button>
+                <button class="time-btn" onclick="changeTimeRange('day')">Per Hari</button>
+                <button class="time-btn" onclick="changeTimeRange('week')">Per Minggu</button>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="moistureChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card">
+            <h2>📋 Log Data Penyiraman</h2>
+            
+            <button class="export-btn" onclick="exportToExcel()">
+                <span>📥</span>
+                <span>Export ke Excel</span>
+            </button>
+
+            <div class="data-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Waktu</th>
+                            <th>Sensor 1 (%)</th>
+                            <th>Sensor 2 (%)</th>
+                            <th>Rata-rata (%)</th>
+                            <th>Status Pompa</th>
+                            <th>Mode</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr>
+                            <td colspan="6" class="loading">
+                                <div class="spinner"></div>
+                                Memuat data dari Firebase...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // FIREBASE CONFIGURATION
+        // ========================================
+        // GANTI dengan konfigurasi Firebase Anda sendiri!
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        let database;
+        let isFirebaseConfigured = false;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            isFirebaseConfigured = true;
+            console.log('✅ Firebase initialized successfully');
+        } catch (error) {
+            console.warn('⚠️ Firebase not configured. Using demo mode.');
+            isFirebaseConfigured = false;
+        }
+
+        // ========================================
+        // GLOBAL VARIABLES
+        // ========================================
+        let moistureData = [];
+        let chart;
+        let currentMode = 'otomatis';
+        let pumpStatus = 'OFF';
+        let minThresholdValue = 30;
+        let maxThresholdValue = 70;
+        let timeRange = 'realtime';
+        let sensor1 = 0;
+        let sensor2 = 0;
+
+        // ========================================
+        // INITIALIZE CHART
+        // ========================================
+        const ctx = document.getElementById('moistureChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Sensor 1',
+                        data: [],
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Sensor 2',
+                        data: [],
+                        borderColor: '#17a2b8',
+                        backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Rata-rata',
+                        data: [],
+                        borderColor: '#4a7c23',
+                        backgroundColor: 'rgba(74, 124, 35, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: {
+                            display: true,
+                            text: 'Kelembaban (%)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Waktu'
+                        }
+                    }
+                }
+            }
+        });
+
+        // ========================================
+        // FIREBASE LISTENERS
+        // ========================================
+        function setupFirebaseListeners() {
+            if (!isFirebaseConfigured) {
+                console.log('🔧 Demo mode - using simulated data');
+                startDemoMode();
+                return;
+            }
+
+            // Listen to sensor data
+            database.ref('sensor').on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    sensor1 = data.sensor1 || 0;
+                    sensor2 = data.sensor2 || 0;
+                    
+                    const avgMoisture = Math.round((sensor1 + sensor2) / 2);
+                    
+                    // Store data point
+                    const dataPoint = {
+                        timestamp: new Date(),
+                        sensor1: sensor1,
+                        sensor2: sensor2,
+                        moisture: avgMoisture,
+                        pumpStatus: pumpStatus,
+                        mode: currentMode
+                    };
+                    
+                    moistureData.push(dataPoint);
+                    if (moistureData.length > 100) {
+                        moistureData.shift();
+                    }
+                    
+                    updateDisplay();
+                }
+            });
+
+            // Listen to pump status
+            database.ref('pump/status').on('value', (snapshot) => {
+                pumpStatus = snapshot.val() || 'OFF';
+                updatePumpDisplay();
+            });
+
+            // Listen to mode
+            database.ref('mode').on('value', (snapshot) => {
+                currentMode = snapshot.val() || 'otomatis';
+                updateModeDisplay();
+            });
+
+            // Listen to threshold settings
+            database.ref('settings/threshold').on('value', (snapshot) => {
+                const threshold = snapshot.val();
+                if (threshold) {
+                    minThresholdValue = threshold.min || 30;
+                    maxThresholdValue = threshold.max || 70;
+                    document.getElementById('minThreshold').value = minThresholdValue;
+                    document.getElementById('maxThreshold').value = maxThresholdValue;
+                    document.getElementById('minLabel').textContent = minThresholdValue;
+                    document.getElementById('maxLabel').textContent = maxThresholdValue;
+                    document.getElementById('minThresholdDisplay').textContent = minThresholdValue;
+                }
+            });
+        }
+
+        // ========================================
+        // DEMO MODE (for testing without Firebase)
+        // ========================================
+        function startDemoMode() {
+            setInterval(() => {
+                sensor1 = Math.floor(Math.random() * 40) + 30;
+                sensor2 = Math.floor(Math.random() * 40) + 30;
+                
+                const avgMoisture = Math.round((sensor1 + sensor2) / 2);
+                
+                // Auto pump control in demo mode
+                if (currentMode === 'otomatis') {
+                    pumpStatus = avgMoisture < minThresholdValue ? 'ON' : 'OFF';
+                }
+                
+                const dataPoint = {
+                    timestamp: new Date(),
+                    sensor1: sensor1,
+                    sensor2: sensor2,
+                    moisture: avgMoisture,
+                    pumpStatus: pumpStatus,
+                    mode: currentMode
+                };
+                
+                moistureData.push(dataPoint);
+                if (moistureData.length > 100) {
+                    moistureData.shift();
+                }
+                
+                updateDisplay();
+            }, 3000);
+        }
+
+        // ========================================
+        // UPDATE DISPLAY FUNCTIONS
+        // ========================================
+        function updateDisplay() {
+            if (moistureData.length === 0) return;
+            
+            const latest = moistureData[moistureData.length - 1];
+            
+            // Update sensor values
+            document.getElementById('sensor1Value').textContent = latest.sensor1;
+            document.getElementById('sensor2Value').textContent = latest.sensor2;
+            document.getElementById('avgMoisture').textContent = latest.moisture + '%';
+            document.getElementById('lastUpdate').textContent = formatDateTime(latest.timestamp);
+            
+            // Update alert
+            const alertDiv = document.getElementById('moistureAlert');
+            if (latest.moisture < minThresholdValue) {
+                alertDiv.className = 'alert danger';
+                alertDiv.innerHTML = '<span>⚠️</span><span><strong>KERING!</strong> Pompa akan aktif otomatis</span>';
+            } else if (latest.moisture > maxThresholdValue) {
+                alertDiv.className = 'alert warning';
+                alertDiv.innerHTML = '<span>💧</span><span><strong>Terlalu Basah!</strong> Perhatikan drainase</span>';
+            } else {
+                alertDiv.className = 'alert success';
+                alertDiv.innerHTML = '<span>✓</span><span><strong>Kelembaban Normal</strong> - Kondisi optimal</span>';
+            }
+            
+            updateChart();
+            updateTable();
+            updatePumpDisplay();
+        }
+
+        function updatePumpDisplay() {
+            const statusDisplay = document.getElementById('pumpStatusDisplay');
+            const indicator = document.getElementById('pumpIndicator');
+            
+            if (pumpStatus === 'ON') {
+                statusDisplay.textContent = 'ON';
+                statusDisplay.className = 'status-value on';
+                indicator.className = 'status-indicator online';
+                indicator.innerHTML = '<div class="status-dot online"></div><span>Pompa Aktif</span>';
+            } else {
+                statusDisplay.textContent = 'OFF';
+                statusDisplay.className = 'status-value off';
+                indicator.className = 'status-indicator offline';
+                indicator.innerHTML = '<div class="status-dot offline"></div><span>Pompa Mati</span>';
+            }
+        }
+
+        function updateModeDisplay() {
+            const modeDisplay = document.getElementById('modeDisplay');
+            const modeIndicator = document.getElementById('modeIndicator');
+            const modeDescription = document.getElementById('modeDescription');
+            const manualPanel = document.getElementById('manualControlPanel');
+            const autoBtn = document.getElementById('autoModeBtn');
+            const manualBtn = document.getElementById('manualModeBtn');
+            
+            // Update buttons
+            autoBtn.classList.remove('active');
+            manualBtn.classList.remove('active');
+            
+            if (currentMode === 'otomatis') {
+                modeDisplay.textContent = 'Otomatis';
+                modeIndicator.className = 'status-indicator online';
+                modeIndicator.innerHTML = '<div class="status-dot online"></div><span>Mode Otomatis Aktif</span>';
+                modeDescription.className = 'alert success';
+                modeDescription.innerHTML = '<span>⚡</span><span><strong>Mode Otomatis:</strong> Sistem akan menyiram otomatis berdasarkan sensor kelembaban</span>';
+                manualPanel.style.display = 'none';
+                autoBtn.classList.add('active');
+            } else {
+                modeDisplay.textContent = 'Manual';
+                modeIndicator.className = 'status-indicator info';
+                modeIndicator.innerHTML = '<div class="status-dot" style="background: #17a2b8;"></div><span>Mode Manual Aktif</span>';
+                modeDescription.className = 'alert warning';
+                modeDescription.innerHTML = '<span>🎮</span><span><strong>Mode Manual:</strong> Anda mengendalikan pompa secara manual</span>';
+                manualPanel.style.display = 'block';
+                manualBtn.classList.add('active');
+            }
+        }
+
+        // ========================================
+        // CHART UPDATE
+        // ========================================
+        function updateChart() {
+            const displayData = getDataByTimeRange();
+            
+            chart.data.labels = displayData.map(d => formatTime(d.timestamp));
+            chart.data.datasets[0].data = displayData.map(d => d.sensor1);
+            chart.data.datasets[1].data = displayData.map(d => d.sensor2);
+            chart.data.datasets[2].data = displayData.map(d => d.moisture);
+            chart.update('none');
+        }
+
+        function getDataByTimeRange() {
+            const now = new Date();
+            return moistureData.filter(d => {
+                const diff = now - d.timestamp;
+                switch(timeRange) {
+                    case 'minute': return diff < 60000;
+                    case 'hour': return diff < 3600000;
+                    case 'day': return diff < 86400000;
+                    case 'week': return diff < 604800000;
+                    default: return true;
+                }
+            });
+        }
+
+        function changeTimeRange(range) {
+            timeRange = range;
+            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            updateChart();
+        }
+
+        // ========================================
+        // TABLE UPDATE
+        // ========================================
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            const recentData = moistureData.slice(-30).reverse();
+            
+            if (recentData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="loading">Belum ada data</td></tr>';
+                return;
+            }
+            
+            recentData.forEach(data => {
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = formatDateTime(data.timestamp);
+                row.insertCell(1).textContent = data.sensor1 + '%';
+                row.insertCell(2).textContent = data.sensor2 + '%';
+                row.insertCell(3).textContent = data.moisture + '%';
+                
+                const pumpCell = row.insertCell(4);
+                pumpCell.textContent = data.pumpStatus;
+                pumpCell.style.fontWeight = 'bold';
+                pumpCell.style.color = data.pumpStatus === 'ON' ? '#28a745' : '#dc3545';
+                
+                row.insertCell(5).textContent = data.mode === 'otomatis' ? 'Otomatis' : 'Manual';
+            });
+        }
+
+        // ========================================
+        // CONTROL FUNCTIONS
+        // ========================================
+        function setMode(mode) {
+            currentMode = mode;
+            
+            if (isFirebaseConfigured) {
+                database.ref('mode').set(mode)
+                    .then(() => console.log('Mode updated:', mode))
+                    .catch((error) => console.error('Error updating mode:', error));
+            }
+            
+            updateModeDisplay();
+        }
+
+        function controlPump(status) {
+            if (currentMode !== 'manual') {
+                alert('⚠️ Pompa hanya bisa dikontrol manual saat Mode Manual aktif!');
+                return;
+            }
+            
+            pumpStatus = status;
+            
+            if (isFirebaseConfigured) {
+                database.ref('pump/status').set(status)
+                    .then(() => console.log('Pump status updated:', status))
+                    .catch((error) => console.error('Error updating pump:', error));
+            }
+            
+            updatePumpDisplay();
+        }
+
+        function updateThreshold(type, value) {
+            if (type === 'min') {
+                minThresholdValue = parseInt(value);
+                document.getElementById('minLabel').textContent = value;
+                document.getElementById('minThresholdDisplay').textContent = value;
+            } else {
+                maxThresholdValue = parseInt(value);
+                document.getElementById('maxLabel').textContent = value;
+            }
+            
+            if (isFirebaseConfigured) {
+                database.ref('settings/threshold').set({
+                    min: minThresholdValue,
+                    max: maxThresholdValue
+                });
+            }
+        }
+
+        // ========================================
+        // EXPORT TO EXCEL
+        // ========================================
+        function exportToExcel() {
+            const ws_data = [['Waktu', 'Sensor 1 (%)', 'Sensor 2 (%)', 'Rata-rata (%)', 'Status Pompa', 'Mode']];
+            
+            moistureData.forEach(data => {
+                ws_data.push([
+                    formatDateTime(data.timestamp),
+                    data.sensor1,
+                    data.sensor2,
+                    data.moisture,
+                    data.pumpStatus,
+                    data.mode === 'otomatis' ? 'Otomatis' : 'Manual'
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Data Kelembaban");
+            
+            const fileName = 'data_kelembaban_bawang_' + new Date().toISOString().split('T')[0] + '.xlsx';
+            XLSX.writeFile(wb, fileName);
+        }
+
+        // ========================================
+        // HELPER FUNCTIONS
+        // ========================================
+        function formatTime(date) {
+            return date.toLocaleTimeString('id-ID');
+        }
+
+        function formatDateTime(date) {
+            return date.toLocaleString('id-ID');
+        }
+
+        // ========================================
+        // INITIALIZE
+        // ========================================
+        window.onload = function() {
+            setupFirebaseListeners();
+        };
+    </script>
+</body>
+</html>
