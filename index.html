@@ -27,13 +27,23 @@
         }
 
         .header {
-            text-align: center;
             color: white;
             margin-bottom: 30px;
             background: rgba(0,0,0,0.2);
             padding: 30px;
             border-radius: 15px;
             backdrop-filter: blur(10px);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .header-left {
+            flex: 1;
         }
 
         .header h1 {
@@ -45,6 +55,40 @@
         .header p {
             font-size: 1.1em;
             opacity: 0.9;
+        }
+
+        .header-right {
+            text-align: right;
+        }
+
+        .logout-btn {
+            padding: 12px 24px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+        }
+
+        .user-info {
+            margin-top: 12px;
+            font-size: 0.9em;
+            background: rgba(255,255,255,0.1);
+            padding: 10px 15px;
+            border-radius: 8px;
+        }
+
+        .user-role {
+            font-weight: bold;
+            color: #ffc107;
         }
 
         .dashboard {
@@ -72,9 +116,6 @@
             font-size: 1.4em;
             border-bottom: 3px solid #4a7c23;
             padding-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
         }
 
         .status-box {
@@ -167,7 +208,7 @@
 
         .sensor-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 15px;
             margin: 20px 0;
         }
@@ -235,9 +276,6 @@
         .manual-control h3 {
             color: #856404;
             margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
 
         .pump-controls {
@@ -264,7 +302,6 @@
 
         .pump-btn.on:hover {
             background: #218838;
-            transform: scale(1.05);
         }
 
         .pump-btn.off {
@@ -274,7 +311,6 @@
 
         .pump-btn.off:hover {
             background: #c82333;
-            transform: scale(1.05);
         }
 
         .alert {
@@ -399,34 +435,86 @@
         .export-btn:hover {
             background: #218838;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4a7c23;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
-            .header h1 {
-                font-size: 1.8em;
+            .header-content {
+                flex-direction: column;
+                text-align: center;
             }
 
-            .dashboard {
-                grid-template-columns: 1fr;
-            }
-
-            .current-value {
-                font-size: 3em;
+            .header-right {
+                text-align: center;
             }
 
             .sensor-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .dashboard {
                 grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
 <body>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p>Memuat data...</p>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
-            <h1>🌱 Sistem Monitoring Kelembaban Tanah</h1>
-            <p>Penyiraman Bawang Merah Otomatis - Desa Purworejo</p>
-            <p style="font-size: 0.9em; margin-top: 10px;">Real-time IoT Monitoring System (Demo Mode)</p>
+            <div class="header-content">
+                <div class="header-left">
+                    <h1>🌱 Sistem Monitoring Kelembaban Tanah</h1>
+                    <p>Penyiraman Bawang Merah Otomatis - Desa Purworejo</p>
+                    <p style="font-size: 0.9em; margin-top: 5px;">Real-time IoT Monitoring dengan Firestore</p>
+                </div>
+                <div class="header-right">
+                    <button onclick="handleLogout()" class="logout-btn">
+                        🚪 Logout
+                    </button>
+                    <div id="userInfo" class="user-info"></div>
+                </div>
+            </div>
         </div>
 
         <div class="dashboard">
@@ -435,19 +523,19 @@
                 
                 <div class="status-box">
                     <div class="status-header">Status Pompa</div>
-                    <div class="status-value" id="pumpStatusDisplay">OFF</div>
+                    <div class="status-value" id="pumpStatusDisplay">--</div>
                     <div class="status-indicator offline" id="pumpIndicator">
                         <div class="status-dot offline"></div>
-                        <span>Pompa Mati</span>
+                        <span>Loading...</span>
                     </div>
                 </div>
 
                 <div class="status-box">
                     <div class="status-header">Mode Operasi</div>
-                    <div class="status-value" id="modeDisplay">Otomatis</div>
+                    <div class="status-value" id="modeDisplay">--</div>
                     <div class="status-indicator online" id="modeIndicator">
                         <div class="status-dot online"></div>
-                        <span>Mode Otomatis Aktif</span>
+                        <span>Loading...</span>
                     </div>
                 </div>
 
@@ -469,6 +557,11 @@
                     <div class="sensor-card">
                         <div class="sensor-label">Sensor 2</div>
                         <div class="sensor-value" id="sensor2Value">--</div>
+                        <div style="font-size: 0.8em; color: #6c757d; margin-top: 5px;">%</div>
+                    </div>
+                    <div class="sensor-card">
+                        <div class="sensor-label">Sensor 3</div>
+                        <div class="sensor-value" id="sensor3Value">--</div>
                         <div style="font-size: 0.8em; color: #6c757d; margin-top: 5px;">%</div>
                     </div>
                 </div>
@@ -493,7 +586,7 @@
 
                 <div id="modeDescription" class="alert success">
                     <span>⚡</span>
-                    <span><strong>Mode Otomatis:</strong> Sistem akan menyiram otomatis berdasarkan sensor kelembaban</span>
+                    <span><strong>Mode Otomatis:</strong> Sistem menyiram otomatis berdasarkan sensor</span>
                 </div>
 
                 <div class="manual-control" id="manualControlPanel" style="display: none;">
@@ -547,6 +640,7 @@
                             <th>Waktu</th>
                             <th>Sensor 1 (%)</th>
                             <th>Sensor 2 (%)</th>
+                            <th>Sensor 3 (%)</th>
                             <th>Rata-rata (%)</th>
                             <th>Status Pompa</th>
                             <th>Mode</th>
@@ -558,16 +652,32 @@
         </div>
     </div>
 
-    <script>
-        let moistureData = [];
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, orderBy, limit, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAiocwIqUr6fulkqJPyib2uq4vEJfYbjU8",
+            authDomain: "monitoringtanah-4b61a.firebaseapp.com",
+            projectId: "monitoringtanah-4b61a",
+            storageBucket: "monitoringtanah-4b61a.firebasestorage.app",
+            messagingSenderId: "167540095624",
+            appId: "1:167540095624:web:3063bfae6e5727a67a7d3d"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
         let chart;
         let currentMode = 'otomatis';
         let pumpStatus = 'OFF';
         let minThresholdValue = 30;
         let maxThresholdValue = 70;
         let timeRange = 'minute';
-        let sensor1 = 0;
-        let sensor2 = 0;
+        let moistureData = [];
+        let unsubscribeSensor = null;
 
         const ctx = document.getElementById('moistureChart').getContext('2d');
         chart = new Chart(ctx, {
@@ -589,6 +699,15 @@
                         data: [],
                         borderColor: '#17a2b8',
                         backgroundColor: 'rgba(23, 162, 184, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Sensor 3',
+                        data: [],
+                        borderColor: '#ffc107',
+                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
                         borderWidth: 2,
                         fill: true,
                         tension: 0.4
@@ -632,60 +751,94 @@
             }
         });
 
-        function startDemoMode() {
-            setInterval(() => {
-                sensor1 = Math.floor(Math.random() * 40) + 30;
-                sensor2 = Math.floor(Math.random() * 40) + 30;
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const userDocRef = doc(db, 'users', user.uid);
+                const userDoc = await getDoc(userDocRef);
                 
-                const avgMoisture = Math.round((sensor1 + sensor2) / 2);
-                
-                if (currentMode === 'otomatis') {
-                    pumpStatus = avgMoisture < minThresholdValue ? 'ON' : 'OFF';
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    document.getElementById('userInfo').innerHTML = `
+                        <div>${userData.email}</div>
+                        <div class="user-role">${userData.role === 'admin' ? '👑 Admin' : '👤 User'}</div>
+                    `;
+                    
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    initializeRealtimeListeners();
+                } else {
+                    await signOut(auth);
+                    window.location.href = 'login.html';
                 }
-                
-                const dataPoint = {
-                    timestamp: new Date(),
-                    sensor1: sensor1,
-                    sensor2: sensor2,
-                    moisture: avgMoisture,
-                    pumpStatus: pumpStatus,
-                    mode: currentMode
-                };
-                
-                moistureData.push(dataPoint);
-                if (moistureData.length > 100) {
-                    moistureData.shift();
+            } else {
+                window.location.href = 'login.html';
+            }
+        });
+
+        function initializeRealtimeListeners() {
+            const sensorDocRef = doc(db, 'sensorData', 'current');
+            
+            unsubscribeSensor = onSnapshot(sensorDocRef, (doc) => {
+                if (doc.exists()) {
+                    const data = doc.data();
+                    updateDisplay(data);
+                    
+                    const dataPoint = {
+                        timestamp: data.lastUpdate?.toDate() || new Date(),
+                        sensor1: data.sensor1 || 0,
+                        sensor2: data.sensor2 || 0,
+                        sensor3: data.sensor3 || 0,
+                        moisture: data.average || 0,
+                        pumpStatus: data.pumpStatus || 'OFF',
+                        mode: data.mode || 'otomatis'
+                    };
+                    
+                    moistureData.push(dataPoint);
+                    if (moistureData.length > 100) {
+                        moistureData.shift();
+                    }
+                    
+                    updateChart();
                 }
-                
-                updateDisplay();
-            }, 3000);
+            });
+
+            loadHistoryData();
         }
 
-        function updateDisplay() {
-            if (moistureData.length === 0) return;
+        async function loadHistoryData() {
+            const logsRef = collection(db, 'logs');
+            const q = query(logsRef, orderBy('timestamp', 'desc'), limit(50));
             
-            const latest = moistureData[moistureData.length - 1];
+            onSnapshot(q, (snapshot) => {
+                updateTable(snapshot.docs);
+            });
+        }
+
+        function updateDisplay(data) {
+            document.getElementById('sensor1Value').textContent = data.sensor1 || '--';
+            document.getElementById('sensor2Value').textContent = data.sensor2 || '--';
+            document.getElementById('sensor3Value').textContent = data.sensor3 || '--';
+            document.getElementById('avgMoisture').textContent = (data.average || 0) + '%';
+            document.getElementById('lastUpdate').textContent = formatDateTime(data.lastUpdate?.toDate() || new Date());
             
-            document.getElementById('sensor1Value').textContent = latest.sensor1;
-            document.getElementById('sensor2Value').textContent = latest.sensor2;
-            document.getElementById('avgMoisture').textContent = latest.moisture + '%';
-            document.getElementById('lastUpdate').textContent = formatDateTime(latest.timestamp);
+            pumpStatus = data.pumpStatus || 'OFF';
+            currentMode = data.mode || 'otomatis';
+            
+            updatePumpDisplay();
+            updateModeDisplay();
             
             const alertDiv = document.getElementById('moistureAlert');
-            if (latest.moisture < minThresholdValue) {
+            const avg = data.average || 0;
+            
+            if (avg < minThresholdValue) {
                 alertDiv.className = 'alert danger';
                 alertDiv.innerHTML = '<span>⚠️</span><span><strong>KERING!</strong> Pompa akan aktif otomatis</span>';
-            } else if (latest.moisture > maxThresholdValue) {
+            } else if (avg > maxThresholdValue) {
                 alertDiv.className = 'alert warning';
                 alertDiv.innerHTML = '<span>💧</span><span><strong>Terlalu Basah!</strong> Perhatikan drainase</span>';
             } else {
                 alertDiv.className = 'alert success';
                 alertDiv.innerHTML = '<span>✓</span><span><strong>Kelembaban Normal</strong> - Kondisi optimal</span>';
             }
-            
-            updateChart();
-            updateTable();
-            updatePumpDisplay();
         }
 
         function updatePumpDisplay() {
@@ -721,7 +874,7 @@
                 modeIndicator.className = 'status-indicator online';
                 modeIndicator.innerHTML = '<div class="status-dot online"></div><span>Mode Otomatis Aktif</span>';
                 modeDescription.className = 'alert success';
-                modeDescription.innerHTML = '<span>⚡</span><span><strong>Mode Otomatis:</strong> Sistem akan menyiram otomatis berdasarkan sensor kelembaban</span>';
+                modeDescription.innerHTML = '<span>⚡</span><span><strong>Mode Otomatis:</strong> Sistem menyiram otomatis berdasarkan sensor</span>';
                 manualPanel.style.display = 'none';
                 autoBtn.classList.add('active');
             } else {
@@ -741,7 +894,8 @@
             chart.data.labels = displayData.map(d => formatTime(d.timestamp));
             chart.data.datasets[0].data = displayData.map(d => d.sensor1);
             chart.data.datasets[1].data = displayData.map(d => d.sensor2);
-            chart.data.datasets[2].data = displayData.map(d => d.moisture);
+            chart.data.datasets[2].data = displayData.map(d => d.sensor3);
+            chart.data.datasets[3].data = displayData.map(d => d.moisture);
             chart.update('none');
         }
 
@@ -750,16 +904,16 @@
             return moistureData.filter(d => {
                 const diff = now - d.timestamp;
                 switch(timeRange) {
-                    case 'minute': return diff < 60000;
-                    case 'hour': return diff < 3600000;
-                    case 'day': return diff < 86400000;
-                    case 'week': return diff < 604800000;
+                    case 'minute': return diff < 3600000;
+                    case 'hour': return diff < 86400000;
+                    case 'day': return diff < 2592000000;
+                    case 'week': return diff < 7776000000;
                     default: return true;
                 }
             });
         }
 
-        function changeTimeRange(range) {
+        window.changeTimeRange = function(range) {
             timeRange = range;
             document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
@@ -783,56 +937,75 @@
             updateChart();
         }
 
-        function updateTable() {
+        function updateTable(docs) {
             const tbody = document.getElementById('tableBody');
             tbody.innerHTML = '';
             
-            const recentData = moistureData.slice(-30).reverse();
-            
-            if (recentData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #6c757d;">Belum ada data</td></tr>';
+            if (docs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #6c757d;">Belum ada data</td></tr>';
                 return;
             }
             
-            recentData.forEach(data => {
+            docs.forEach(docSnapshot => {
+                const data = docSnapshot.data();
                 const row = tbody.insertRow();
-                row.insertCell(0).textContent = formatDateTime(data.timestamp);
+                row.insertCell(0).textContent = formatDateTime(data.timestamp?.toDate());
                 row.insertCell(1).textContent = data.sensor1 + '%';
                 row.insertCell(2).textContent = data.sensor2 + '%';
-                row.insertCell(3).textContent = data.moisture + '%';
+                row.insertCell(3).textContent = data.sensor3 + '%';
+                row.insertCell(4).textContent = data.average + '%';
                 
-                const pumpCell = row.insertCell(4);
+                const pumpCell = row.insertCell(5);
                 pumpCell.textContent = data.pumpStatus;
                 pumpCell.style.fontWeight = 'bold';
                 pumpCell.style.color = data.pumpStatus === 'ON' ? '#28a745' : '#dc3545';
                 
-                row.insertCell(5).textContent = data.mode === 'otomatis' ? 'Otomatis' : 'Manual';
+                row.insertCell(6).textContent = data.mode === 'otomatis' ? 'Otomatis' : 'Manual';
             });
         }
 
-        function setMode(mode) {
-            currentMode = mode;
-            updateModeDisplay();
+        window.setMode = async function(mode) {
+            try {
+                const sensorDocRef = doc(db, 'sensorData', 'current');
+                await setDoc(sensorDocRef, { mode: mode }, { merge: true });
+                currentMode = mode;
+                updateModeDisplay();
+            } catch (error) {
+                console.error('Error setting mode:', error);
+                alert('Gagal mengubah mode: ' + error.message);
+            }
         }
 
-        function controlPump(status) {
+        window.controlPump = async function(status) {
             if (currentMode !== 'manual') {
                 alert('⚠️ Pompa hanya bisa dikontrol manual saat Mode Manual aktif!');
                 return;
             }
             
-            pumpStatus = status;
-            updatePumpDisplay();
+            try {
+                const sensorDocRef = doc(db, 'sensorData', 'current');
+                await setDoc(sensorDocRef, { 
+                    pumpStatus: status,
+                    lastUpdate: serverTimestamp()
+                }, { merge: true });
+                
+                pumpStatus = status;
+                updatePumpDisplay();
+            } catch (error) {
+                console.error('Error controlling pump:', error);
+                alert('Gagal mengontrol pompa: ' + error.message);
+            }
         }
 
-        function exportToExcel() {
-            const ws_data = [['Waktu', 'Sensor 1 (%)', 'Sensor 2 (%)', 'Rata-rata (%)', 'Status Pompa', 'Mode']];
+        window.exportToExcel = function() {
+            const ws_data = [['Waktu', 'Sensor 1 (%)', 'Sensor 2 (%)', 'Sensor 3 (%)', 'Rata-rata (%)', 'Status Pompa', 'Mode']];
             
             moistureData.forEach(data => {
                 ws_data.push([
                     formatDateTime(data.timestamp),
                     data.sensor1,
                     data.sensor2,
+                    data.sensor3,
                     data.moisture,
                     data.pumpStatus,
                     data.mode === 'otomatis' ? 'Otomatis' : 'Manual'
@@ -847,17 +1020,28 @@
             XLSX.writeFile(wb, fileName);
         }
 
+        window.handleLogout = async function() {
+            if (confirm('Yakin ingin logout?')) {
+                try {
+                    if (unsubscribeSensor) unsubscribeSensor();
+                    await signOut(auth);
+                    sessionStorage.clear();
+                    window.location.href = 'login.html';
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    alert('Gagal logout: ' + error.message);
+                }
+            }
+        }
+
         function formatTime(date) {
             return date.toLocaleTimeString('id-ID');
         }
 
         function formatDateTime(date) {
+            if (!date) return '--';
             return date.toLocaleString('id-ID');
         }
-
-        window.onload = function() {
-            startDemoMode();
-        };
     </script>
 </body>
 </html>

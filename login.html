@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Monitoring Kelembaban Tanah</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #2d5016 0%, #4a7c23 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 50px rgba(0,0,0,0.3);
+            max-width: 450px;
+            width: 100%;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: #2d5016;
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .login-header p {
+            color: #6c757d;
+            font-size: 0.95em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #495057;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #4a7c23;
+            box-shadow: 0 0 0 3px rgba(74, 124, 35, 0.1);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 16px;
+            background: #4a7c23;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .login-btn:hover {
+            background: #3d6a1c;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(74, 124, 35, 0.3);
+        }
+
+        .login-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 14px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            border-left: 4px solid #dc3545;
+            font-size: 0.9em;
+        }
+
+        .demo-credentials {
+            margin-top: 25px;
+            padding: 18px;
+            background: #fff3cd;
+            border-radius: 8px;
+            font-size: 0.88em;
+            border-left: 4px solid #ffc107;
+        }
+
+        .demo-credentials strong {
+            display: block;
+            margin-bottom: 10px;
+            color: #856404;
+            font-size: 1.05em;
+        }
+
+        .demo-credentials .credential-item {
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 5px;
+            color: #495057;
+        }
+
+        .demo-credentials .credential-item strong {
+            display: inline;
+            margin: 0;
+            color: #2d5016;
+        }
+
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 30px 20px;
+            }
+
+            .login-header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>🌱 Login</h1>
+            <p>Sistem Monitoring Kelembaban Tanah</p>
+            <p style="font-size: 0.85em; color: #28a745; margin-top: 5px;">Desa Purworejo - Ngantang</p>
+        </div>
+
+        <div id="errorMessage" class="error-message"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">📧 Email</label>
+                <input type="email" id="email" required placeholder="Masukkan email Anda" autocomplete="email">
+            </div>
+
+            <div class="form-group">
+                <label for="password">🔒 Password</label>
+                <input type="password" id="password" required placeholder="Masukkan password" autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="login-btn" id="loginBtn">
+                🚀 Login
+            </button>
+        </form>
+
+        <div class="demo-credentials">
+            <strong>🔑 Demo Credentials:</strong>
+            <div class="credential-item">
+                <strong>👑 Admin:</strong> admin@monitoring.com / Admin123!
+            </div>
+            <div class="credential-item">
+                <strong>👤 User:</strong> user@monitoring.com / User123!
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { login } from './js/auth.js';
+
+        const loginForm = document.getElementById('loginForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+
+            if (!email || !password) {
+                showError('Email dan password harus diisi');
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.textContent = '⏳ Loading...';
+            errorMessage.style.display = 'none';
+
+            const result = await login(email, password);
+
+            if (result.success) {
+                loginBtn.textContent = '✅ Berhasil! Mengalihkan...';
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 500);
+            } else {
+                showError(result.error);
+                loginBtn.disabled = false;
+                loginBtn.textContent = '🚀 Login';
+            }
+        });
+
+        function showError(message) {
+            errorMessage.textContent = '❌ ' + message;
+            errorMessage.style.display = 'block';
+        }
+
+        // Auto-hide error on input
+        emailInput.addEventListener('input', () => {
+            errorMessage.style.display = 'none';
+        });
+
+        passwordInput.addEventListener('input', () => {
+            errorMessage.style.display = 'none';
+        });
+    </script>
+</body>
+</html>
