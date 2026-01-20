@@ -44,16 +44,47 @@ function initializeDashboard(userData) {
   // Display user info
   displayUserInfo(userData);
   
+  // ============================================
+  // ROLE-BASED ACCESS CONTROL
+  // ============================================
+  const userRole = userData.role || getUserRole();
+  
+  // Hide export button untuk user biasa
+  if (userRole !== 'admin') {
+    const exportBtn = document.querySelector('.export-btn');
+    if (exportBtn) {
+      exportBtn.style.display = 'none';
+    }
+  }
+  
+  // Hide mode control untuk user biasa
+  if (userRole !== 'admin') {
+    const modeControlCard = document.getElementById('modeControlCard');
+    if (modeControlCard) {
+      modeControlCard.style.display = 'none';
+    }
+  }
+  
   // Initialize chart
   initializeChart();
   
-  // Start listening to sensor data
-  startSensorListener();
+  // ============================================
+  // DATA DUMMY UNTUK TESTING (SEMENTARA)
+  // ============================================
+  // TODO: Hapus bagian ini setelah koneksi sensor real sudah siap
+  loadDummyData();
   
-  // Start listening to history data
-  startHistoryListener();
+  // Start listening to sensor data (Real Firebase)
+  // Uncomment line dibawah jika sudah ada data real di Firebase
+  // startSensorListener();
+  
+  // Start listening to history data (Real Firebase)
+  // Uncomment line dibawah jika sudah ada data real di Firebase
+  // startHistoryListener();
   
   console.log('Dashboard initialized successfully');
+  console.log('User role:', userRole);
+  console.log('⚠️ USING DUMMY DATA - Replace with real sensor data later');
 }
 
 // ===============================
@@ -416,12 +447,27 @@ function updateTable(docs) {
 // SET MODE
 // ===============================
 window.setMode = async function(mode) {
+  // ============================================
+  // ROLE-BASED ACCESS CONTROL
+  // ============================================
+  const userRole = getUserRole();
+  if (userRole !== 'admin') {
+    alert('⚠️ Maaf, hanya Admin yang dapat mengubah mode sistem!');
+    return;
+  }
+  
   try {
-    const sensorDocRef = doc(db, 'sensorData', 'current');
-    await setDoc(sensorDocRef, { mode: mode }, { merge: true });
+    // Jika menggunakan Firebase real
+    // const sensorDocRef = doc(db, 'sensorData', 'current');
+    // await setDoc(sensorDocRef, { mode: mode }, { merge: true });
+    
+    // ============================================
+    // UNTUK DUMMY DATA (sementara)
+    // ============================================
     currentMode = mode;
     updateModeDisplay();
     console.log('Mode changed to:', mode);
+    
   } catch (error) {
     console.error('Error setting mode:', error);
     alert('Gagal mengubah mode: ' + error.message);
@@ -437,16 +483,30 @@ window.controlPump = async function(status) {
     return;
   }
   
+  // ============================================
+  // ROLE-BASED ACCESS CONTROL
+  // ============================================
+  const userRole = getUserRole();
+  if (userRole !== 'admin') {
+    alert('⚠️ Maaf, hanya Admin yang dapat mengontrol pompa!');
+    return;
+  }
+  
   try {
-    const sensorDocRef = doc(db, 'sensorData', 'current');
-    await setDoc(sensorDocRef, { 
-      pumpStatus: status,
-      lastUpdate: serverTimestamp()
-    }, { merge: true });
+    // Jika menggunakan Firebase real
+    // const sensorDocRef = doc(db, 'sensorData', 'current');
+    // await setDoc(sensorDocRef, { 
+    //   pumpStatus: status,
+    //   lastUpdate: serverTimestamp()
+    // }, { merge: true });
     
+    // ============================================
+    // UNTUK DUMMY DATA (sementara)
+    // ============================================
     pumpStatus = status;
     updatePumpDisplay();
     console.log('Pump status changed to:', status);
+    
   } catch (error) {
     console.error('Error controlling pump:', error);
     alert('Gagal mengontrol pompa: ' + error.message);
@@ -457,6 +517,15 @@ window.controlPump = async function(status) {
 // EXPORT TO EXCEL
 // ===============================
 window.exportToExcel = function() {
+  // ============================================
+  // ROLE-BASED ACCESS CONTROL
+  // ============================================
+  const userRole = getUserRole();
+  if (userRole !== 'admin') {
+    alert('⚠️ Maaf, hanya Admin yang dapat mengekspor data ke Excel!');
+    return;
+  }
+  
   const ws_data = [['Waktu', 'Sensor 1 (%)', 'Sensor 2 (%)', 'Sensor 3 (%)', 'Rata-rata (%)', 'Status Pompa', 'Mode']];
   
   moistureData.forEach(data => {
@@ -478,6 +547,155 @@ window.exportToExcel = function() {
   const fileName = 'data_kelembaban_tanah_' + new Date().toISOString().split('T')[0] + '.xlsx';
   XLSX.writeFile(wb, fileName);
   console.log('Data exported to Excel:', fileName);
+}
+
+// ===============================
+// ⚠️ DATA DUMMY UNTUK TESTING
+// ===============================
+// TODO: HAPUS FUNGSI INI setelah sensor ESP32 sudah terhubung
+function loadDummyData() {
+  console.log('🔄 Loading dummy data...');
+  
+  // ============================================
+  // DUMMY CURRENT SENSOR DATA
+  // ============================================
+  const dummyCurrentData = {
+    sensor1: 45,
+    sensor2: 52,
+    sensor3: 48,
+    average: 48.33,
+    pumpStatus: 'OFF',
+    mode: 'otomatis',
+    lastUpdate: new Date()
+  };
+  
+  // Update dashboard dengan dummy data
+  updateDashboard(dummyCurrentData);
+  
+  // ============================================
+  // DUMMY HISTORY DATA (50 data points)
+  // ============================================
+  moistureData = [];
+  const now = new Date();
+  
+  // Generate 50 data points dengan timestamp berbeda
+  for (let i = 49; i >= 0; i--) {
+    const timestamp = new Date(now.getTime() - (i * 2 * 60 * 1000)); // Setiap 2 menit
+    
+    // Random sensor values dengan variasi realistis
+    const baseValue = 45 + Math.random() * 20; // 45-65%
+    const sensor1 = Math.round(baseValue + (Math.random() - 0.5) * 10);
+    const sensor2 = Math.round(baseValue + (Math.random() - 0.5) * 10);
+    const sensor3 = Math.round(baseValue + (Math.random() - 0.5) * 10);
+    const average = Math.round((sensor1 + sensor2 + sensor3) / 3 * 100) / 100;
+    
+    // Tentukan status pompa berdasarkan kelembaban
+    let pumpStatus = 'OFF';
+    if (average < 30) {
+      pumpStatus = 'ON';
+    }
+    
+    moistureData.push({
+      timestamp: timestamp,
+      sensor1: Math.max(0, Math.min(100, sensor1)), // Clamp 0-100
+      sensor2: Math.max(0, Math.min(100, sensor2)),
+      sensor3: Math.max(0, Math.min(100, sensor3)),
+      moisture: Math.max(0, Math.min(100, average)),
+      pumpStatus: pumpStatus,
+      mode: 'otomatis'
+    });
+  }
+  
+  // Update chart dengan dummy data
+  updateChart();
+  
+  // Update table dengan dummy data
+  updateTableWithDummyData();
+  
+  // ============================================
+  // AUTO-UPDATE DUMMY DATA (simulasi real-time)
+  // ============================================
+  // Update sensor values setiap 5 detik untuk simulasi
+  setInterval(() => {
+    // Random variations
+    const variation = (Math.random() - 0.5) * 5; // ±2.5%
+    
+    dummyCurrentData.sensor1 = Math.max(0, Math.min(100, dummyCurrentData.sensor1 + variation));
+    dummyCurrentData.sensor2 = Math.max(0, Math.min(100, dummyCurrentData.sensor2 + variation));
+    dummyCurrentData.sensor3 = Math.max(0, Math.min(100, dummyCurrentData.sensor3 + variation));
+    dummyCurrentData.average = Math.round((dummyCurrentData.sensor1 + dummyCurrentData.sensor2 + dummyCurrentData.sensor3) / 3 * 100) / 100;
+    
+    // Update pump status
+    if (dummyCurrentData.mode === 'otomatis') {
+      if (dummyCurrentData.average < 30) {
+        dummyCurrentData.pumpStatus = 'ON';
+      } else if (dummyCurrentData.average > 70) {
+        dummyCurrentData.pumpStatus = 'OFF';
+      }
+    }
+    
+    dummyCurrentData.lastUpdate = new Date();
+    
+    // Update dashboard
+    updateDashboard(dummyCurrentData);
+    
+    // Add to history data
+    moistureData.push({
+      timestamp: new Date(),
+      sensor1: Math.round(dummyCurrentData.sensor1),
+      sensor2: Math.round(dummyCurrentData.sensor2),
+      sensor3: Math.round(dummyCurrentData.sensor3),
+      moisture: dummyCurrentData.average,
+      pumpStatus: dummyCurrentData.pumpStatus,
+      mode: dummyCurrentData.mode
+    });
+    
+    // Keep only last 100 data points
+    if (moistureData.length > 100) {
+      moistureData.shift();
+    }
+    
+    // Update chart
+    updateChart();
+    
+  }, 5000); // Update setiap 5 detik
+  
+  console.log('✅ Dummy data loaded successfully');
+  console.log('📊 Total dummy history data:', moistureData.length);
+}
+
+// ===============================
+// UPDATE TABLE WITH DUMMY DATA
+// ===============================
+function updateTableWithDummyData() {
+  const tbody = document.getElementById('tableBody');
+  if (!tbody) return;
+  
+  tbody.innerHTML = '';
+  
+  if (moistureData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #6c757d;">Belum ada data</td></tr>';
+    return;
+  }
+  
+  // Show last 20 entries in table
+  const recentData = [...moistureData].reverse().slice(0, 20);
+  
+  recentData.forEach(data => {
+    const row = tbody.insertRow();
+    row.insertCell(0).textContent = formatDateTime(data.timestamp);
+    row.insertCell(1).textContent = data.sensor1 + '%';
+    row.insertCell(2).textContent = data.sensor2 + '%';
+    row.insertCell(3).textContent = data.sensor3 + '%';
+    row.insertCell(4).textContent = data.moisture + '%';
+    
+    const pumpCell = row.insertCell(5);
+    pumpCell.textContent = data.pumpStatus;
+    pumpCell.style.fontWeight = 'bold';
+    pumpCell.style.color = data.pumpStatus === 'ON' ? '#28a745' : '#dc3545';
+    
+    row.insertCell(6).textContent = data.mode === 'otomatis' ? 'Otomatis' : 'Manual';
+  });
 }
 
 // ===============================
