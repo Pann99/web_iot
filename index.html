@@ -3,611 +3,148 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoring Kelembaban Tanah - Bawang Merah</title>
+    <title>Dashboard Monitoring Kelembaban Tanah</title>
+    
+    <!-- External Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #2d5016 0%, #4a7c23 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .header {
-            color: white;
-            margin-bottom: 30px;
-            background: rgba(0,0,0,0.2);
-            padding: 30px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-        }
-
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .header-left {
-            flex: 1;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .header p {
-            font-size: 1.1em;
-            opacity: 0.9;
-        }
-
-        .header-right {
-            text-align: right;
-        }
-
-        .logout-btn {
-            padding: 12px 24px;
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1em;
-            transition: all 0.3s;
-        }
-
-        .logout-btn:hover {
-            background: #c82333;
-            transform: translateY(-2px);
-        }
-
-        .user-info {
-            margin-top: 12px;
-            font-size: 0.9em;
-            background: rgba(255,255,255,0.1);
-            padding: 10px 15px;
-            border-radius: 8px;
-        }
-
-        .user-role {
-            font-weight: bold;
-            color: #ffc107;
-        }
-
-        .dashboard {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .card {
-            background: white;
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            transition: transform 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-        }
-
-        .card h2 {
-            color: #2d5016;
-            margin-bottom: 20px;
-            font-size: 1.4em;
-            border-bottom: 3px solid #4a7c23;
-            padding-bottom: 10px;
-        }
-
-        .status-box {
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 15px 0;
-            border-left: 5px solid #4a7c23;
-        }
-
-        .status-header {
-            color: #6c757d;
-            font-size: 0.9em;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-        }
-
-        .status-value {
-            font-size: 2.5em;
-            font-weight: bold;
-            color: #2d5016;
-        }
-
-        .status-value.on {
-            color: #28a745;
-        }
-
-        .status-value.off {
-            color: #dc3545;
-        }
-
-        .status-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: 600;
-            margin-top: 10px;
-        }
-
-        .status-indicator.online {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-indicator.offline {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        .status-dot.online {
-            background: #28a745;
-        }
-
-        .status-dot.offline {
-            background: #dc3545;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.6; transform: scale(1.1); }
-        }
-
-        .current-value {
-            font-size: 4em;
-            font-weight: bold;
-            color: #4a7c23;
-            text-align: center;
-            margin: 30px 0;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .value-label {
-            text-align: center;
-            color: #666;
-            font-size: 1.1em;
-            font-weight: 500;
-        }
-
-        .sensor-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .sensor-card {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            padding: 15px;
-            border-radius: 10px;
-            text-align: center;
-            border: 2px solid #dee2e6;
-        }
-
-        .sensor-label {
-            font-size: 0.85em;
-            color: #6c757d;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .sensor-value {
-            font-size: 2em;
-            font-weight: bold;
-            color: #2d5016;
-        }
-
-        .mode-selector {
-            display: flex;
-            gap: 10px;
-            margin: 20px 0;
-        }
-
-        .mode-btn {
-            flex: 1;
-            padding: 15px;
-            border: 3px solid #4a7c23;
-            background: white;
-            color: #4a7c23;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1.1em;
-            transition: all 0.3s;
-            text-transform: uppercase;
-        }
-
-        .mode-btn:hover {
-            background: #f8f9fa;
-            transform: scale(1.02);
-        }
-
-        .mode-btn.active {
-            background: #4a7c23;
-            color: white;
-            box-shadow: 0 5px 15px rgba(74, 124, 35, 0.3);
-        }
-
-        .manual-control {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            border-radius: 12px;
-            padding: 20px;
-            margin: 20px 0;
-        }
-
-        .manual-control h3 {
-            color: #856404;
-            margin-bottom: 15px;
-        }
-
-        .pump-controls {
-            display: flex;
-            gap: 10px;
-        }
-
-        .pump-btn {
-            flex: 1;
-            padding: 15px;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 1.1em;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-transform: uppercase;
-        }
-
-        .pump-btn.on {
-            background: #28a745;
-            color: white;
-        }
-
-        .pump-btn.on:hover {
-            background: #218838;
-        }
-
-        .pump-btn.off {
-            background: #dc3545;
-            color: white;
-        }
-
-        .pump-btn.off:hover {
-            background: #c82333;
-        }
-
-        .alert {
-            padding: 15px 20px;
-            margin: 15px 0;
-            border-radius: 10px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .alert.warning {
-            background: #fff3cd;
-            color: #856404;
-            border-left: 5px solid #ffc107;
-        }
-
-        .alert.danger {
-            background: #f8d7da;
-            color: #721c24;
-            border-left: 5px solid #dc3545;
-        }
-
-        .alert.success {
-            background: #d4edda;
-            color: #155724;
-            border-left: 5px solid #28a745;
-        }
-
-        .alert.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border-left: 5px solid #17a2b8;
-        }
-
-        .time-selector {
-            display: flex;
-            gap: 10px;
-            margin: 20px 0;
-            flex-wrap: wrap;
-        }
-
-        .time-btn {
-            padding: 10px 20px;
-            border: 2px solid #4a7c23;
-            background: white;
-            color: #4a7c23;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-
-        .time-btn:hover {
-            background: #f8f9fa;
-        }
-
-        .time-btn.active {
-            background: #4a7c23;
-            color: white;
-        }
-
-        .chart-container {
-            position: relative;
-            height: 350px;
-            margin: 20px 0;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-        }
-
-        .data-table {
-            max-height: 400px;
-            overflow-y: auto;
-            margin: 20px 0;
-            border-radius: 10px;
-            border: 1px solid #dee2e6;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #dee2e6;
-        }
-
-        th {
-            background: #4a7c23;
-            color: white;
-            position: sticky;
-            top: 0;
-            font-weight: 600;
-            z-index: 10;
-        }
-
-        tr:hover {
-            background: #f8f9fa;
-        }
-
-        .export-btn {
-            width: 100%;
-            padding: 15px;
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 1.1em;
-            font-weight: bold;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .export-btn:hover {
-            background: #218838;
-            transform: translateY(-2px);
-        }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-        }
-
-        .loading-content {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-        }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #4a7c23;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @media (max-width: 768px) {
-            .header-content {
-                flex-direction: column;
-                text-align: center;
-            }
-
-            .header-right {
-                text-align: center;
-            }
-
-            .sensor-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .dashboard {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/dashboard-styles.css">
 </head>
 <body>
-    <div id="loadingOverlay" class="loading-overlay">
-        <div class="loading-content">
-            <div class="spinner"></div>
-            <p>Memuat data...</p>
-        </div>
-    </div>
-
     <div class="container">
-        <div class="header">
+        <!-- ===============================
+             HEADER SECTION
+             =============================== -->
+        <header class="header">
             <div class="header-content">
                 <div class="header-left">
-                    <h1>🌱 Sistem Monitoring Kelembaban Tanah</h1>
-                    <p>Penyiraman Bawang Merah Otomatis - Desa Purworejo</p>
-                    <p style="font-size: 0.9em; margin-top: 5px;">Real-time IoT Monitoring dengan Firestore</p>
+                    <h1>🌱 Monitoring Kelembaban Tanah</h1>
+                    <p>Sistem Monitoring dan Kontrol Irigasi Bawang Merah</p>
+                    <p style="font-size: 0.9em; opacity: 0.8; margin-top: 5px;">📍 Desa Purworejo - Ngantang, Malang</p>
                 </div>
                 <div class="header-right">
-                    <button onclick="handleLogout()" class="logout-btn">
+                    <button class="logout-btn" onclick="handleLogout()">
                         🚪 Logout
                     </button>
-                    <div id="userInfo" class="user-info"></div>
+                    <div class="user-info">
+                        <div>👤 <span id="userEmail">Loading...</span></div>
+                        <div>🎭 Role: <span class="user-role" id="userRole">Loading...</span></div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </header>
 
+        <!-- ===============================
+             DASHBOARD GRID
+             =============================== -->
         <div class="dashboard">
+            
+            <!-- ===============================
+                 CARD: DATA SENSOR (3 SENSORS)
+                 =============================== -->
             <div class="card">
-                <h2>⚙️ Status Sistem</h2>
+                <h2>📊 Data Sensor Real-time</h2>
                 
-                <div class="status-box">
-                    <div class="status-header">Status Pompa</div>
-                    <div class="status-value" id="pumpStatusDisplay">--</div>
-                    <div class="status-indicator offline" id="pumpIndicator">
-                        <div class="status-dot offline"></div>
-                        <span>Loading...</span>
-                    </div>
-                </div>
-
-                <div class="status-box">
-                    <div class="status-header">Mode Operasi</div>
-                    <div class="status-value" id="modeDisplay">--</div>
-                    <div class="status-indicator online" id="modeIndicator">
-                        <div class="status-dot online"></div>
-                        <span>Loading...</span>
-                    </div>
-                </div>
-
-                <div style="margin-top: 20px; padding: 15px; background: #e7f5ff; border-radius: 10px; border-left: 4px solid #17a2b8;">
-                    <strong style="color: #0c5460;">🕐 Terakhir Update:</strong>
-                    <div id="lastUpdate" style="color: #0c5460; margin-top: 5px;">--</div>
-                </div>
-            </div>
-
-            <div class="card">
-                <h2>💧 Kelembaban Tanah Real-time</h2>
-                
+                <!-- 3 Sensor Grid -->
                 <div class="sensor-grid">
                     <div class="sensor-card">
-                        <div class="sensor-label">Sensor 1</div>
-                        <div class="sensor-value" id="sensor1Value">--</div>
-                        <div style="font-size: 0.8em; color: #6c757d; margin-top: 5px;">%</div>
+                        <div class="sensor-label">🌡️ Sensor 1</div>
+                        <div class="sensor-value" id="sensor1Value">0%</div>
                     </div>
                     <div class="sensor-card">
-                        <div class="sensor-label">Sensor 2</div>
-                        <div class="sensor-value" id="sensor2Value">--</div>
-                        <div style="font-size: 0.8em; color: #6c757d; margin-top: 5px;">%</div>
+                        <div class="sensor-label">🌡️ Sensor 2</div>
+                        <div class="sensor-value" id="sensor2Value">0%</div>
                     </div>
                     <div class="sensor-card">
-                        <div class="sensor-label">Sensor 3</div>
-                        <div class="sensor-value" id="sensor3Value">--</div>
-                        <div style="font-size: 0.8em; color: #6c757d; margin-top: 5px;">%</div>
+                        <div class="sensor-label">🌡️ Sensor 3</div>
+                        <div class="sensor-value" id="sensor3Value">0%</div>
                     </div>
                 </div>
 
-                <div class="current-value" id="avgMoisture">--</div>
-                <div class="value-label">Rata-rata Kelembaban (%)</div>
+                <!-- Average Display -->
+                <div class="current-value" id="averageValue">0%</div>
+                <div class="value-label">Kelembaban Rata-rata</div>
 
-                <div id="moistureAlert" style="margin-top: 20px;"></div>
+                <!-- Moisture Alert -->
+                <div id="moistureAlert" class="alert info">
+                    <span>ℹ️</span>
+                    <span>Menunggu data sensor...</span>
+                </div>
             </div>
 
+            <!-- ===============================
+                 CARD: STATUS POMPA
+                 =============================== -->
             <div class="card">
-                <h2>🎯 Mode Operasi</h2>
-                
-                <div class="mode-selector">
-                    <button class="mode-btn active" id="autoModeBtn" onclick="setMode('otomatis')">
-                        ⚡ Otomatis
-                    </button>
-                    <button class="mode-btn" id="manualModeBtn" onclick="setMode('manual')">
-                        🎮 Manual
-                    </button>
+                <h2>💧 Status Pompa</h2>
+                <div class="status-box">
+                    <div class="status-header">Status Pompa</div>
+                    <div class="status-value off" id="pumpStatusDisplay">OFF</div>
+                    <div class="status-indicator offline" id="pumpIndicator">
+                        <div class="status-dot offline"></div>
+                        <span>Pompa Mati</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===============================
+                 CARD: KONTROL MODE
+                 =============================== -->
+            <div class="card">
+                <h2>⚙️ Kontrol Mode</h2>
+                <div class="status-box">
+                    <div class="status-header">Mode Aktif</div>
+                    <div class="status-value" id="modeDisplay">Otomatis</div>
+                    <div class="status-indicator online" id="modeIndicator">
+                        <div class="status-dot online"></div>
+                        <span>Mode Otomatis Aktif</span>
+                    </div>
                 </div>
 
+                <!-- Mode Description -->
                 <div id="modeDescription" class="alert success">
                     <span>⚡</span>
                     <span><strong>Mode Otomatis:</strong> Sistem menyiram otomatis berdasarkan sensor</span>
                 </div>
 
-                <div class="manual-control" id="manualControlPanel" style="display: none;">
-                    <h3>🎮 Kontrol Manual Pompa</h3>
-                    <p style="color: #856404; margin-bottom: 15px; font-size: 0.9em;">Kendalikan pompa secara manual ON/OFF</p>
-                    
-                    <div class="pump-controls">
-                        <button class="pump-btn on" onclick="controlPump('ON')">
-                            ▶ NYALAKAN
+                <!-- Mode Buttons -->
+                <div class="control-buttons">
+                    <button class="control-btn btn-auto active" id="autoModeBtn" onclick="setMode('otomatis')">
+                        ⚡ Mode Otomatis
+                    </button>
+                    <button class="control-btn btn-manual" id="manualModeBtn" onclick="setMode('manual')">
+                        🎮 Mode Manual
+                    </button>
+                </div>
+
+                <!-- Manual Control Panel -->
+                <div id="manualControlPanel" style="display: none; margin-top: 20px;">
+                    <div class="alert warning">
+                        <span>⚠️</span>
+                        <span>Kontrol pompa secara manual</span>
+                    </div>
+                    <div class="control-buttons">
+                        <button class="control-btn btn-on" onclick="controlPump('ON')">
+                            ✅ Nyalakan Pompa
                         </button>
-                        <button class="pump-btn off" onclick="controlPump('OFF')">
-                            ⏹ MATIKAN
+                        <button class="control-btn btn-off" onclick="controlPump('OFF')">
+                            ❌ Matikan Pompa
                         </button>
                     </div>
                 </div>
             </div>
+
         </div>
 
-        <div class="card" style="margin-bottom: 30px;">
-            <h2>📊 Grafik Kelembaban Tanah</h2>
+        <!-- ===============================
+             CARD: GRAFIK KELEMBABAN
+             =============================== -->
+        <div class="card">
+            <h2>📈 Grafik Kelembaban Tanah</h2>
             
+            <!-- Time Range Selector -->
             <div class="time-selector">
                 <button class="time-btn active" onclick="changeTimeRange('minute')">Per Menit</button>
                 <button class="time-btn" onclick="changeTimeRange('hour')">Per Jam</button>
@@ -615,433 +152,54 @@
                 <button class="time-btn" onclick="changeTimeRange('week')">Per Minggu</button>
             </div>
 
-            <div id="chartInfo" class="alert info" style="margin: 15px 0;">
+            <div class="alert info" style="margin-bottom: 15px;">
                 <span>📊</span>
                 <span id="chartInfoText">Menampilkan data per menit (1 jam terakhir)</span>
             </div>
 
+            <!-- Chart Container -->
             <div class="chart-container">
                 <canvas id="moistureChart"></canvas>
             </div>
         </div>
 
-        <div class="card" style="margin-top: 30px;">
-            <h2>📋 Log Data Penyiraman</h2>
+        <!-- ===============================
+             CARD: TABEL RIWAYAT DATA
+             =============================== -->
+        <div class="card">
+            <h2>📋 Riwayat Data</h2>
             
             <button class="export-btn" onclick="exportToExcel()">
-                <span>📥</span>
-                <span>Export ke Excel</span>
+                📥 Export ke Excel
             </button>
 
-            <div class="data-table">
+            <div class="table-container">
                 <table>
                     <thead>
                         <tr>
                             <th>Waktu</th>
-                            <th>Sensor 1 (%)</th>
-                            <th>Sensor 2 (%)</th>
-                            <th>Sensor 3 (%)</th>
-                            <th>Rata-rata (%)</th>
-                            <th>Status Pompa</th>
+                            <th>Sensor 1</th>
+                            <th>Sensor 2</th>
+                            <th>Sensor 3</th>
+                            <th>Rata-rata</th>
+                            <th>Pompa</th>
                             <th>Mode</th>
                         </tr>
                     </thead>
-                    <tbody id="tableBody"></tbody>
+                    <tbody id="tableBody">
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 20px; color: #6c757d;">
+                                Memuat data...
+                            </td>
+                        </tr>
+                    </tbody>
                 </table>
             </div>
         </div>
+
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, orderBy, limit, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyAiocwIqUr6fulkqJPyib2uq4vEJfYbjU8",
-            authDomain: "monitoringtanah-4b61a.firebaseapp.com",
-            projectId: "monitoringtanah-4b61a",
-            storageBucket: "monitoringtanah-4b61a.firebasestorage.app",
-            messagingSenderId: "167540095624",
-            appId: "1:167540095624:web:3063bfae6e5727a67a7d3d"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-
-        let chart;
-        let currentMode = 'otomatis';
-        let pumpStatus = 'OFF';
-        let minThresholdValue = 30;
-        let maxThresholdValue = 70;
-        let timeRange = 'minute';
-        let moistureData = [];
-        let unsubscribeSensor = null;
-
-        const ctx = document.getElementById('moistureChart').getContext('2d');
-        chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [
-                    {
-                        label: 'Sensor 1',
-                        data: [],
-                        borderColor: '#28a745',
-                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Sensor 2',
-                        data: [],
-                        borderColor: '#17a2b8',
-                        backgroundColor: 'rgba(23, 162, 184, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Sensor 3',
-                        data: [],
-                        borderColor: '#ffc107',
-                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Rata-rata',
-                        data: [],
-                        borderColor: '#4a7c23',
-                        backgroundColor: 'rgba(74, 124, 35, 0.1)',
-                        borderWidth: 3,
-                        fill: true,
-                        tension: 0.4
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        title: {
-                            display: true,
-                            text: 'Kelembaban (%)'
-                        }
-                    },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Waktu'
-                        }
-                    }
-                }
-            }
-        });
-
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                const userDocRef = doc(db, 'users', user.uid);
-                const userDoc = await getDoc(userDocRef);
-                
-                if (userDoc.exists()) {
-                    const userData = userDoc.data();
-                    document.getElementById('userInfo').innerHTML = `
-                        <div>${userData.email}</div>
-                        <div class="user-role">${userData.role === 'admin' ? '👑 Admin' : '👤 User'}</div>
-                    `;
-                    
-                    document.getElementById('loadingOverlay').style.display = 'none';
-                    initializeRealtimeListeners();
-                } else {
-                    await signOut(auth);
-                    window.location.href = 'login.html';
-                }
-            } else {
-                window.location.href = 'login.html';
-            }
-        });
-
-        function initializeRealtimeListeners() {
-            const sensorDocRef = doc(db, 'sensorData', 'current');
-            
-            unsubscribeSensor = onSnapshot(sensorDocRef, (doc) => {
-                if (doc.exists()) {
-                    const data = doc.data();
-                    updateDisplay(data);
-                    
-                    const dataPoint = {
-                        timestamp: data.lastUpdate?.toDate() || new Date(),
-                        sensor1: data.sensor1 || 0,
-                        sensor2: data.sensor2 || 0,
-                        sensor3: data.sensor3 || 0,
-                        moisture: data.average || 0,
-                        pumpStatus: data.pumpStatus || 'OFF',
-                        mode: data.mode || 'otomatis'
-                    };
-                    
-                    moistureData.push(dataPoint);
-                    if (moistureData.length > 100) {
-                        moistureData.shift();
-                    }
-                    
-                    updateChart();
-                }
-            });
-
-            loadHistoryData();
-        }
-
-        async function loadHistoryData() {
-            const logsRef = collection(db, 'logs');
-            const q = query(logsRef, orderBy('timestamp', 'desc'), limit(50));
-            
-            onSnapshot(q, (snapshot) => {
-                updateTable(snapshot.docs);
-            });
-        }
-
-        function updateDisplay(data) {
-            document.getElementById('sensor1Value').textContent = data.sensor1 || '--';
-            document.getElementById('sensor2Value').textContent = data.sensor2 || '--';
-            document.getElementById('sensor3Value').textContent = data.sensor3 || '--';
-            document.getElementById('avgMoisture').textContent = (data.average || 0) + '%';
-            document.getElementById('lastUpdate').textContent = formatDateTime(data.lastUpdate?.toDate() || new Date());
-            
-            pumpStatus = data.pumpStatus || 'OFF';
-            currentMode = data.mode || 'otomatis';
-            
-            updatePumpDisplay();
-            updateModeDisplay();
-            
-            const alertDiv = document.getElementById('moistureAlert');
-            const avg = data.average || 0;
-            
-            if (avg < minThresholdValue) {
-                alertDiv.className = 'alert danger';
-                alertDiv.innerHTML = '<span>⚠️</span><span><strong>KERING!</strong> Pompa akan aktif otomatis</span>';
-            } else if (avg > maxThresholdValue) {
-                alertDiv.className = 'alert warning';
-                alertDiv.innerHTML = '<span>💧</span><span><strong>Terlalu Basah!</strong> Perhatikan drainase</span>';
-            } else {
-                alertDiv.className = 'alert success';
-                alertDiv.innerHTML = '<span>✓</span><span><strong>Kelembaban Normal</strong> - Kondisi optimal</span>';
-            }
-        }
-
-        function updatePumpDisplay() {
-            const statusDisplay = document.getElementById('pumpStatusDisplay');
-            const indicator = document.getElementById('pumpIndicator');
-            
-            if (pumpStatus === 'ON') {
-                statusDisplay.textContent = 'ON';
-                statusDisplay.className = 'status-value on';
-                indicator.className = 'status-indicator online';
-                indicator.innerHTML = '<div class="status-dot online"></div><span>Pompa Aktif</span>';
-            } else {
-                statusDisplay.textContent = 'OFF';
-                statusDisplay.className = 'status-value off';
-                indicator.className = 'status-indicator offline';
-                indicator.innerHTML = '<div class="status-dot offline"></div><span>Pompa Mati</span>';
-            }
-        }
-
-        function updateModeDisplay() {
-            const modeDisplay = document.getElementById('modeDisplay');
-            const modeIndicator = document.getElementById('modeIndicator');
-            const modeDescription = document.getElementById('modeDescription');
-            const manualPanel = document.getElementById('manualControlPanel');
-            const autoBtn = document.getElementById('autoModeBtn');
-            const manualBtn = document.getElementById('manualModeBtn');
-            
-            autoBtn.classList.remove('active');
-            manualBtn.classList.remove('active');
-            
-            if (currentMode === 'otomatis') {
-                modeDisplay.textContent = 'Otomatis';
-                modeIndicator.className = 'status-indicator online';
-                modeIndicator.innerHTML = '<div class="status-dot online"></div><span>Mode Otomatis Aktif</span>';
-                modeDescription.className = 'alert success';
-                modeDescription.innerHTML = '<span>⚡</span><span><strong>Mode Otomatis:</strong> Sistem menyiram otomatis berdasarkan sensor</span>';
-                manualPanel.style.display = 'none';
-                autoBtn.classList.add('active');
-            } else {
-                modeDisplay.textContent = 'Manual';
-                modeIndicator.className = 'status-indicator info';
-                modeIndicator.innerHTML = '<div class="status-dot" style="background: #17a2b8;"></div><span>Mode Manual Aktif</span>';
-                modeDescription.className = 'alert warning';
-                modeDescription.innerHTML = '<span>🎮</span><span><strong>Mode Manual:</strong> Anda mengendalikan pompa secara manual</span>';
-                manualPanel.style.display = 'block';
-                manualBtn.classList.add('active');
-            }
-        }
-
-        function updateChart() {
-            const displayData = getDataByTimeRange();
-            
-            chart.data.labels = displayData.map(d => formatTime(d.timestamp));
-            chart.data.datasets[0].data = displayData.map(d => d.sensor1);
-            chart.data.datasets[1].data = displayData.map(d => d.sensor2);
-            chart.data.datasets[2].data = displayData.map(d => d.sensor3);
-            chart.data.datasets[3].data = displayData.map(d => d.moisture);
-            chart.update('none');
-        }
-
-        function getDataByTimeRange() {
-            const now = new Date();
-            return moistureData.filter(d => {
-                const diff = now - d.timestamp;
-                switch(timeRange) {
-                    case 'minute': return diff < 3600000;
-                    case 'hour': return diff < 86400000;
-                    case 'day': return diff < 2592000000;
-                    case 'week': return diff < 7776000000;
-                    default: return true;
-                }
-            });
-        }
-
-        window.changeTimeRange = function(range) {
-            timeRange = range;
-            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-            
-            const infoText = document.getElementById('chartInfoText');
-            switch(range) {
-                case 'minute':
-                    infoText.textContent = 'Menampilkan data per menit (1 jam terakhir)';
-                    break;
-                case 'hour':
-                    infoText.textContent = 'Menampilkan data per jam (24 jam terakhir)';
-                    break;
-                case 'day':
-                    infoText.textContent = 'Menampilkan data per hari (30 hari terakhir)';
-                    break;
-                case 'week':
-                    infoText.textContent = 'Menampilkan data per minggu (12 minggu terakhir)';
-                    break;
-            }
-            
-            updateChart();
-        }
-
-        function updateTable(docs) {
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = '';
-            
-            if (docs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #6c757d;">Belum ada data</td></tr>';
-                return;
-            }
-            
-            docs.forEach(docSnapshot => {
-                const data = docSnapshot.data();
-                const row = tbody.insertRow();
-                row.insertCell(0).textContent = formatDateTime(data.timestamp?.toDate());
-                row.insertCell(1).textContent = data.sensor1 + '%';
-                row.insertCell(2).textContent = data.sensor2 + '%';
-                row.insertCell(3).textContent = data.sensor3 + '%';
-                row.insertCell(4).textContent = data.average + '%';
-                
-                const pumpCell = row.insertCell(5);
-                pumpCell.textContent = data.pumpStatus;
-                pumpCell.style.fontWeight = 'bold';
-                pumpCell.style.color = data.pumpStatus === 'ON' ? '#28a745' : '#dc3545';
-                
-                row.insertCell(6).textContent = data.mode === 'otomatis' ? 'Otomatis' : 'Manual';
-            });
-        }
-
-        window.setMode = async function(mode) {
-            try {
-                const sensorDocRef = doc(db, 'sensorData', 'current');
-                await setDoc(sensorDocRef, { mode: mode }, { merge: true });
-                currentMode = mode;
-                updateModeDisplay();
-            } catch (error) {
-                console.error('Error setting mode:', error);
-                alert('Gagal mengubah mode: ' + error.message);
-            }
-        }
-
-        window.controlPump = async function(status) {
-            if (currentMode !== 'manual') {
-                alert('⚠️ Pompa hanya bisa dikontrol manual saat Mode Manual aktif!');
-                return;
-            }
-            
-            try {
-                const sensorDocRef = doc(db, 'sensorData', 'current');
-                await setDoc(sensorDocRef, { 
-                    pumpStatus: status,
-                    lastUpdate: serverTimestamp()
-                }, { merge: true });
-                
-                pumpStatus = status;
-                updatePumpDisplay();
-            } catch (error) {
-                console.error('Error controlling pump:', error);
-                alert('Gagal mengontrol pompa: ' + error.message);
-            }
-        }
-
-        window.exportToExcel = function() {
-            const ws_data = [['Waktu', 'Sensor 1 (%)', 'Sensor 2 (%)', 'Sensor 3 (%)', 'Rata-rata (%)', 'Status Pompa', 'Mode']];
-            
-            moistureData.forEach(data => {
-                ws_data.push([
-                    formatDateTime(data.timestamp),
-                    data.sensor1,
-                    data.sensor2,
-                    data.sensor3,
-                    data.moisture,
-                    data.pumpStatus,
-                    data.mode === 'otomatis' ? 'Otomatis' : 'Manual'
-                ]);
-            });
-
-            const ws = XLSX.utils.aoa_to_sheet(ws_data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Data Kelembaban");
-            
-            const fileName = 'data_kelembaban_bawang_' + new Date().toISOString().split('T')[0] + '.xlsx';
-            XLSX.writeFile(wb, fileName);
-        }
-
-        window.handleLogout = async function() {
-            if (confirm('Yakin ingin logout?')) {
-                try {
-                    if (unsubscribeSensor) unsubscribeSensor();
-                    await signOut(auth);
-                    sessionStorage.clear();
-                    window.location.href = 'login.html';
-                } catch (error) {
-                    console.error('Logout error:', error);
-                    alert('Gagal logout: ' + error.message);
-                }
-            }
-        }
-
-        function formatTime(date) {
-            return date.toLocaleTimeString('id-ID');
-        }
-
-        function formatDateTime(date) {
-            if (!date) return '--';
-            return date.toLocaleString('id-ID');
-        }
-    </script>
+    <!-- Load App Script -->
+    <script type="module" src="js/app.js"></script>
 </body>
 </html>

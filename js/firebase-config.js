@@ -1,9 +1,12 @@
-// Import Firebase modules
+// ===============================
+// FIREBASE CONFIGURATION
+// ===============================
+// Import Firebase modules from CDN
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// Your Firebase configuration
+// Firebase configuration object
 const firebaseConfig = {
   apiKey: "AIzaSyAiocwIqUr6fulkqJPyib2uq4vEJfYbjU8",
   authDomain: "monitoringtanah-4b61a.firebaseapp.com",
@@ -16,7 +19,12 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
+// Initialize Firebase Authentication
 const auth = getAuth(app);
+
+// Initialize Cloud Firestore
 const db = getFirestore(app);
 
+// Export for use in other modules
 export { auth, db };
