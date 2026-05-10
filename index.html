@@ -44,7 +44,7 @@
             <!-- ===============================
                  CARD: DATA SENSOR (3 SENSORS)
                  =============================== -->
-            <div class="card">
+            <div class="card" id="sensorCard">
                 <h2>📊 Data Sensor Real-time</h2>
                 
                 <!-- 3 Sensor Grid -->
@@ -77,7 +77,7 @@
             <!-- ===============================
                  CARD: STATUS POMPA
                  =============================== -->
-            <div class="card">
+            <div class="card" id="statusPompaCard">
                 <h2>💧 Status Pompa</h2>
                 <div class="status-box">
                     <div class="status-header">Status Pompa</div>
@@ -85,6 +85,16 @@
                     <div class="status-indicator offline" id="pumpIndicator">
                         <div class="status-dot offline"></div>
                         <span>Pompa Mati</span>
+                    </div>
+                </div>
+                
+                <!-- Mode Aktif Display (View Only) -->
+                <div class="status-box" style="margin-top: 15px;">
+                    <div class="status-header">Mode Aktif</div>
+                    <div class="status-value" id="modeDisplayReadOnly">Otomatis</div>
+                    <div class="status-indicator online" id="modeIndicatorReadOnly">
+                        <div class="status-dot online"></div>
+                        <span>Mode Otomatis Aktif</span>
                     </div>
                 </div>
             </div>

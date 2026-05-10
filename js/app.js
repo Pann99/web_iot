@@ -1,18 +1,14 @@
 // ===============================
 // MONITORING DASHBOARD APP
 // ===============================
+
 import { checkAuth, logout, getUserEmail, getUserName, getUserRole } from './auth.js';
-import { db } from './firebase-config.js';
-import { 
-  doc, 
-  collection,
-  onSnapshot,
-  setDoc,
-  query,
-  orderBy,
-  limit,
-  serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { rtdb } from './firebase-config.js';
+import {
+  ref,
+  onValue,
+  set
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
 // ===============================
 // GLOBAL VARIABLES
@@ -20,17 +16,18 @@ import {
 let moistureData = [];
 let chart = null;
 let timeRange = 'minute';
-let unsubscribeSensor = null;
-let currentMode = 'otomatis';
-let pumpStatus = 'OFF';
-let minThresholdValue = 30;
-let maxThresholdValue = 70;
+let currentMode = 'otomatis'; // 'otomatis' atau 'manual'
+let pumpStatus = 'OFF';       // 'ON' atau 'OFF'
+let unsubscribeSoil = null;
+let unsubscribePump = null;
+let unsubscribeMode = null;
+
+const THRESHOLD_KERING = 40; // % kelembaban batas kering
 
 // ===============================
 // INITIALIZE APP
 // ===============================
 document.addEventListener('DOMContentLoaded', () => {
-  // Check authentication
   checkAuth((user, userData) => {
     console.log('User authenticated:', userData);
     initializeDashboard(userData);
@@ -41,66 +38,303 @@ document.addEventListener('DOMContentLoaded', () => {
 // INITIALIZE DASHBOARD
 // ===============================
 function initializeDashboard(userData) {
-  // Display user info
+
   displayUserInfo(userData);
-  
-  // ============================================
-  // ROLE-BASED ACCESS CONTROL
-  // ============================================
+
   const userRole = userData.role || getUserRole();
-  
-  // Hide export button untuk user biasa
+
+  // Sembunyikan tombol export untuk non-admin
   if (userRole !== 'admin') {
     const exportBtn = document.querySelector('.export-btn');
-    if (exportBtn) {
-      exportBtn.style.display = 'none';
-    }
+    if (exportBtn) exportBtn.style.display = 'none';
   }
-  
-  // Hide mode control untuk user biasa
+
+  // Sembunyikan kartu kontrol mode untuk non-admin
   if (userRole !== 'admin') {
     const modeControlCard = document.getElementById('modeControlCard');
-    if (modeControlCard) {
-      modeControlCard.style.display = 'none';
-    }
+    if (modeControlCard) modeControlCard.style.display = 'none';
   }
-  
-  // Initialize chart
+
   initializeChart();
-  
-  // ============================================
-  // DATA DUMMY UNTUK TESTING (SEMENTARA)
-  // ============================================
-  // TODO: Hapus bagian ini setelah koneksi sensor real sudah siap
-  loadDummyData();
-  
-  // Start listening to sensor data (Real Firebase)
-  // Uncomment line dibawah jika sudah ada data real di Firebase
-  // startSensorListener();
-  
-  // Start listening to history data (Real Firebase)
-  // Uncomment line dibawah jika sudah ada data real di Firebase
-  // startHistoryListener();
-  
-  console.log('Dashboard initialized successfully');
-  console.log('User role:', userRole);
-  console.log('⚠️ USING DUMMY DATA - Replace with real sensor data later');
+  startRealtimeListeners();
+
+  console.log('✅ Dashboard aktif | Role:', userRole);
 }
 
 // ===============================
 // DISPLAY USER INFO
 // ===============================
 function displayUserInfo(userData) {
-  const userEmailEl = document.getElementById('userEmail');
-  const userRoleEl = document.getElementById('userRole');
-  
-  if (userEmailEl) {
-    userEmailEl.textContent = userData.email || getUserEmail();
+  const emailEl = document.getElementById('userEmail');
+  const roleEl  = document.getElementById('userRole');
+
+  if (emailEl) emailEl.textContent = userData.email || getUserEmail();
+  if (roleEl)  roleEl.textContent  = (userData.role || getUserRole()) === 'admin'
+    ? 'Administrator'
+    : 'User';
+}
+
+// ===============================
+// REALTIME LISTENERS
+// ===============================
+function startRealtimeListeners() {
+
+  // ------------------------------------------
+  // 1. LISTENER DATA SENSOR (/soil)
+  // ------------------------------------------
+  onValue(ref(rtdb, '/soil'), (snapshot) => {
+
+    const data = snapshot.val();
+
+    if (!data) {
+      setDefaultValues();
+      return;
+    }
+
+    const s1  = parseFloat(data.sensor1 || 0);
+    const s2  = parseFloat(data.sensor2 || 0);
+    const s3  = parseFloat(data.sensor3 || 0);
+    const avg = parseFloat(data.average || 0);
+
+    // Update tampilan sensor
+    document.getElementById('sensor1Value').textContent = s1.toFixed(2) + '%';
+    document.getElementById('sensor2Value').textContent = s2.toFixed(2) + '%';
+    document.getElementById('sensor3Value').textContent = s3.toFixed(2) + '%';
+    document.getElementById('averageValue').textContent = avg.toFixed(2) + '%';
+
+    // Update alert kelembaban
+    updateMoistureAlert(avg);
+
+    // Simpan ke riwayat lokal
+    moistureData.push({
+      timestamp: new Date(),
+      sensor1: s1,
+      sensor2: s2,
+      sensor3: s3,
+      moisture: avg,
+      pumpStatus: pumpStatus,
+      mode: currentMode
+    });
+
+    if (moistureData.length > 200) moistureData.shift();
+
+    updateChart();
+    updateTable();
+
+  }, (error) => {
+    console.error('Sensor listener error:', error);
+    setDefaultValues();
+  });
+
+  // ------------------------------------------
+  // 2. LISTENER STATUS POMPA (/pump/status)
+  // ------------------------------------------
+  onValue(ref(rtdb, '/pump/status'), (snapshot) => {
+
+    const val = snapshot.val();
+
+    // Firebase kirim: 1 = ON, 0 = OFF
+    pumpStatus = (val === 1 || val === '1') ? 'ON' : 'OFF';
+
+    updatePumpDisplay();
+
+  }, (error) => {
+    console.error('Pump status listener error:', error);
+  });
+
+  // ------------------------------------------
+  // 3. LISTENER MODE (/control/mode)
+  // ------------------------------------------
+  onValue(ref(rtdb, '/control/mode'), (snapshot) => {
+
+    const val = snapshot.val() || 'auto';
+
+    // ESP32 pakai 'auto'/'manual', web pakai 'otomatis'/'manual'
+    currentMode = (val === 'auto') ? 'otomatis' : 'manual';
+
+    updateModeDisplay();
+
+  }, (error) => {
+    console.error('Mode listener error:', error);
+  });
+}
+
+// ===============================
+// UPDATE PUMP DISPLAY
+// ===============================
+function updatePumpDisplay() {
+
+  const statusDisplay = document.getElementById('pumpStatusDisplay');
+  const indicator     = document.getElementById('pumpIndicator');
+
+  if (!statusDisplay || !indicator) return;
+
+  if (pumpStatus === 'ON') {
+    statusDisplay.textContent = 'ON';
+    statusDisplay.className   = 'status-value on';
+    indicator.className       = 'status-indicator online';
+    indicator.innerHTML       = '<div class="status-dot online"></div><span>Pompa Aktif</span>';
+  } else {
+    statusDisplay.textContent = 'OFF';
+    statusDisplay.className   = 'status-value off';
+    indicator.className       = 'status-indicator offline';
+    indicator.innerHTML       = '<div class="status-dot offline"></div><span>Pompa Mati</span>';
   }
-  
-  if (userRoleEl) {
-    const role = userData.role || getUserRole();
-    userRoleEl.textContent = role === 'admin' ? 'Administrator' : 'User';
+}
+
+// ===============================
+// UPDATE MODE DISPLAY
+// ===============================
+function updateModeDisplay() {
+
+  const isManual = (currentMode === 'manual');
+  const label    = isManual ? 'Manual' : 'Otomatis';
+
+  // --- Kartu "Kontrol Mode" (admin only) ---
+  const modeDisplay   = document.getElementById('modeDisplay');
+  const modeIndicator = document.getElementById('modeIndicator');
+  const modeDesc      = document.getElementById('modeDescription');
+  const manualPanel   = document.getElementById('manualControlPanel');
+  const autoBtn       = document.getElementById('autoModeBtn');
+  const manualBtn     = document.getElementById('manualModeBtn');
+
+  if (modeDisplay)   modeDisplay.textContent = label;
+
+  if (modeIndicator) {
+    modeIndicator.className = 'status-indicator ' + (isManual ? 'info' : 'online');
+    modeIndicator.innerHTML = `<div class="status-dot ${isManual ? 'online' : 'online'}"></div>
+      <span>Mode ${label} Aktif</span>`;
+  }
+
+  if (modeDesc) {
+    if (isManual) {
+      modeDesc.className = 'alert warning';
+      modeDesc.innerHTML = '<span>⚠️</span><span><strong>Mode Manual:</strong> Sensor diabaikan, kontrol pompa manual</span>';
+    } else {
+      modeDesc.className = 'alert success';
+      modeDesc.innerHTML = '<span>⚡</span><span><strong>Mode Otomatis:</strong> Pompa dikontrol otomatis oleh sensor</span>';
+    }
+  }
+
+  if (manualPanel) manualPanel.style.display = isManual ? 'block' : 'none';
+
+  // Highlight tombol aktif
+  if (autoBtn) {
+    autoBtn.classList.toggle('active', !isManual);
+  }
+  if (manualBtn) {
+    manualBtn.classList.toggle('active', isManual);
+  }
+
+  // --- Kartu "Status Pompa" (read-only view) ---
+  const modeRODisplay   = document.getElementById('modeDisplayReadOnly');
+  const modeROIndicator = document.getElementById('modeIndicatorReadOnly');
+
+  if (modeRODisplay)   modeRODisplay.textContent = label;
+
+  if (modeROIndicator) {
+    modeROIndicator.className = 'status-indicator ' + (isManual ? 'info' : 'online');
+    modeROIndicator.innerHTML = `<div class="status-dot online"></div>
+      <span>Mode ${label} Aktif</span>`;
+  }
+}
+
+// ===============================
+// UPDATE MOISTURE ALERT
+// ===============================
+function updateMoistureAlert(avg) {
+
+  const alertDiv = document.getElementById('moistureAlert');
+  if (!alertDiv) return;
+
+  if (avg < THRESHOLD_KERING) {
+    alertDiv.className = 'alert danger';
+    alertDiv.innerHTML = '<span>⚠️</span><span><strong>KERING!</strong> Kelembaban rendah - pompa aktif otomatis</span>';
+  } else if (avg > 70) {
+    alertDiv.className = 'alert warning';
+    alertDiv.innerHTML = '<span>💧</span><span><strong>Terlalu Basah!</strong> Periksa drainase</span>';
+  } else {
+    alertDiv.className = 'alert success';
+    alertDiv.innerHTML = '<span>✅</span><span><strong>Normal</strong> - Kelembaban optimal</span>';
+  }
+}
+
+// ===============================
+// SET DEFAULT VALUES
+// ===============================
+function setDefaultValues() {
+  ['sensor1Value','sensor2Value','sensor3Value','averageValue']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '0%';
+    });
+
+  const alertDiv = document.getElementById('moistureAlert');
+  if (alertDiv) {
+    alertDiv.className = 'alert info';
+    alertDiv.innerHTML = '<span>ℹ️</span><span>Menunggu data sensor dari ESP32...</span>';
+  }
+}
+
+// ===============================
+// SET MODE (dipanggil dari tombol HTML)
+// ===============================
+window.setMode = async function(mode) {
+
+  // Cek role admin
+  if (getUserRole() !== 'admin') {
+    alert('⚠️ Hanya Admin yang dapat mengubah mode!');
+    return;
+  }
+
+  try {
+    // Konversi: web pakai 'otomatis', ESP32 pakai 'auto'
+    const rtdbMode = (mode === 'otomatis') ? 'auto' : 'manual';
+
+    await set(ref(rtdb, '/control/mode'), rtdbMode);
+
+    console.log('✅ Mode diubah ke:', rtdbMode);
+
+    // Jika kembali ke otomatis, reset perintah pompa ke 0
+    if (rtdbMode === 'auto') {
+      await set(ref(rtdb, '/control/pump'), 0);
+    }
+
+  } catch (error) {
+    console.error('setMode error:', error);
+    alert('Gagal mengubah mode: ' + error.message);
+  }
+}
+
+// ===============================
+// CONTROL PUMP (dipanggil dari tombol HTML)
+// ===============================
+window.controlPump = async function(status) {
+
+  // Harus dalam mode manual
+  if (currentMode !== 'manual') {
+    alert('⚠️ Ubah ke Mode Manual dulu sebelum kontrol pompa!');
+    return;
+  }
+
+  // Cek role admin
+  if (getUserRole() !== 'admin') {
+    alert('⚠️ Hanya Admin yang dapat mengontrol pompa!');
+    return;
+  }
+
+  try {
+    // Kirim 1 = ON, 0 = OFF ke Firebase
+    // ESP32 akan membaca ini dan menggerakkan relay
+    const pumpValue = (status === 'ON') ? 1 : 0;
+
+    await set(ref(rtdb, '/control/pump'), pumpValue);
+
+    console.log('✅ Perintah pompa dikirim:', status, '(' + pumpValue + ')');
+
+  } catch (error) {
+    console.error('controlPump error:', error);
+    alert('Gagal mengontrol pompa: ' + error.message);
   }
 }
 
@@ -108,9 +342,10 @@ function displayUserInfo(userData) {
 // INITIALIZE CHART
 // ===============================
 function initializeChart() {
+
   const ctx = document.getElementById('moistureChart');
   if (!ctx) return;
-  
+
   chart = new Chart(ctx, {
     type: 'line',
     data: {
@@ -120,60 +355,53 @@ function initializeChart() {
           label: 'Sensor 1',
           data: [],
           borderColor: '#007bff',
-          backgroundColor: 'rgba(0, 123, 255, 0.1)',
-          tension: 0.4
+          backgroundColor: 'rgba(0,123,255,0.08)',
+          tension: 0.4,
+          pointRadius: 3
         },
         {
           label: 'Sensor 2',
           data: [],
           borderColor: '#28a745',
-          backgroundColor: 'rgba(40, 167, 69, 0.1)',
-          tension: 0.4
+          backgroundColor: 'rgba(40,167,69,0.08)',
+          tension: 0.4,
+          pointRadius: 3
         },
         {
           label: 'Sensor 3',
           data: [],
           borderColor: '#ffc107',
-          backgroundColor: 'rgba(255, 193, 7, 0.1)',
-          tension: 0.4
+          backgroundColor: 'rgba(255,193,7,0.08)',
+          tension: 0.4,
+          pointRadius: 3
         },
         {
           label: 'Rata-rata',
           data: [],
           borderColor: '#dc3545',
-          backgroundColor: 'rgba(220, 53, 69, 0.1)',
+          backgroundColor: 'rgba(220,53,69,0.1)',
           tension: 0.4,
-          borderWidth: 3
+          borderWidth: 3,
+          pointRadius: 4
         }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: false,
       plugins: {
-        legend: {
-          display: true,
-          position: 'top'
-        },
-        tooltip: {
-          mode: 'index',
-          intersect: false
-        }
+        legend: { display: true, position: 'top' },
+        tooltip: { mode: 'index', intersect: false }
       },
       scales: {
         y: {
           beginAtZero: true,
           max: 100,
-          title: {
-            display: true,
-            text: 'Kelembaban (%)'
-          }
+          title: { display: true, text: 'Kelembaban (%)' }
         },
         x: {
-          title: {
-            display: true,
-            text: 'Waktu'
-          }
+          title: { display: true, text: 'Waktu' }
         }
       }
     }
@@ -181,187 +409,20 @@ function initializeChart() {
 }
 
 // ===============================
-// START SENSOR LISTENER
-// ===============================
-function startSensorListener() {
-  const sensorDocRef = doc(db, 'sensorData', 'current');
-  
-  unsubscribeSensor = onSnapshot(sensorDocRef, (docSnapshot) => {
-    if (docSnapshot.exists()) {
-      const data = docSnapshot.data();
-      updateDashboard(data);
-    } else {
-      console.log('No sensor data available');
-      setDefaultValues();
-    }
-  }, (error) => {
-    console.error('Error listening to sensor data:', error);
-    setDefaultValues();
-  });
-}
-
-// ===============================
-// START HISTORY LISTENER
-// ===============================
-function startHistoryListener() {
-  const historyRef = collection(db, 'sensorHistory');
-  const historyQuery = query(historyRef, orderBy('timestamp', 'desc'), limit(100));
-  
-  onSnapshot(historyQuery, (snapshot) => {
-    moistureData = [];
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      moistureData.push({
-        timestamp: data.timestamp?.toDate() || new Date(),
-        sensor1: data.sensor1 || 0,
-        sensor2: data.sensor2 || 0,
-        sensor3: data.sensor3 || 0,
-        moisture: data.average || 0,
-        pumpStatus: data.pumpStatus || 'OFF',
-        mode: data.mode || 'otomatis'
-      });
-    });
-    
-    // Sort by timestamp ascending for chart
-    moistureData.sort((a, b) => a.timestamp - b.timestamp);
-    
-    // Update chart and table
-    updateChart();
-    updateTable(snapshot.docs);
-  }, (error) => {
-    console.error('Error listening to history:', error);
-  });
-}
-
-// ===============================
-// UPDATE DASHBOARD
-// ===============================
-function updateDashboard(data) {
-  // Update sensor values
-  const sensor1Value = data.sensor1 || 0;
-  const sensor2Value = data.sensor2 || 0;
-  const sensor3Value = data.sensor3 || 0;
-  const averageValue = data.average || 0;
-  
-  document.getElementById('sensor1Value').textContent = sensor1Value + '%';
-  document.getElementById('sensor2Value').textContent = sensor2Value + '%';
-  document.getElementById('sensor3Value').textContent = sensor3Value + '%';
-  document.getElementById('averageValue').textContent = averageValue + '%';
-  
-  // Update pump status
-  pumpStatus = data.pumpStatus || 'OFF';
-  currentMode = data.mode || 'otomatis';
-  
-  updatePumpDisplay();
-  updateModeDisplay();
-  
-  // Update moisture alert
-  const alertDiv = document.getElementById('moistureAlert');
-  if (alertDiv) {
-    if (averageValue < minThresholdValue) {
-      alertDiv.className = 'alert danger';
-      alertDiv.innerHTML = '<span>⚠️</span><span><strong>KERING!</strong> Pompa akan aktif otomatis</span>';
-    } else if (averageValue > maxThresholdValue) {
-      alertDiv.className = 'alert warning';
-      alertDiv.innerHTML = '<span>💧</span><span><strong>Terlalu Basah!</strong> Perhatikan drainase</span>';
-    } else {
-      alertDiv.className = 'alert success';
-      alertDiv.innerHTML = '<span>✓</span><span><strong>Kelembaban Normal</strong> - Kondisi optimal</span>';
-    }
-  }
-}
-
-// ===============================
-// SET DEFAULT VALUES
-// ===============================
-function setDefaultValues() {
-  document.getElementById('sensor1Value').textContent = '0%';
-  document.getElementById('sensor2Value').textContent = '0%';
-  document.getElementById('sensor3Value').textContent = '0%';
-  document.getElementById('averageValue').textContent = '0%';
-  document.getElementById('pumpStatusDisplay').textContent = 'OFF';
-  document.getElementById('modeDisplay').textContent = 'Otomatis';
-}
-
-// ===============================
-// UPDATE PUMP DISPLAY
-// ===============================
-function updatePumpDisplay() {
-  const statusDisplay = document.getElementById('pumpStatusDisplay');
-  const indicator = document.getElementById('pumpIndicator');
-  
-  if (!statusDisplay || !indicator) return;
-  
-  if (pumpStatus === 'ON') {
-    statusDisplay.textContent = 'ON';
-    statusDisplay.className = 'status-value on';
-    indicator.className = 'status-indicator online';
-    indicator.innerHTML = '<div class="status-dot online"></div><span>Pompa Aktif</span>';
-  } else {
-    statusDisplay.textContent = 'OFF';
-    statusDisplay.className = 'status-value off';
-    indicator.className = 'status-indicator offline';
-    indicator.innerHTML = '<div class="status-dot offline"></div><span>Pompa Mati</span>';
-  }
-}
-
-// ===============================
-// UPDATE MODE DISPLAY
-// ===============================
-function updateModeDisplay() {
-  const modeDisplay = document.getElementById('modeDisplay');
-  const modeIndicator = document.getElementById('modeIndicator');
-  const modeDescription = document.getElementById('modeDescription');
-  const manualPanel = document.getElementById('manualControlPanel');
-  const autoBtn = document.getElementById('autoModeBtn');
-  const manualBtn = document.getElementById('manualModeBtn');
-  
-  if (!modeDisplay) return;
-  
-  // Remove active class from all buttons
-  if (autoBtn) autoBtn.classList.remove('active');
-  if (manualBtn) manualBtn.classList.remove('active');
-  
-  if (currentMode === 'otomatis') {
-    modeDisplay.textContent = 'Otomatis';
-    if (modeIndicator) {
-      modeIndicator.className = 'status-indicator online';
-      modeIndicator.innerHTML = '<div class="status-dot online"></div><span>Mode Otomatis Aktif</span>';
-    }
-    if (modeDescription) {
-      modeDescription.className = 'alert success';
-      modeDescription.innerHTML = '<span>⚡</span><span><strong>Mode Otomatis:</strong> Sistem menyiram otomatis berdasarkan sensor</span>';
-    }
-    if (manualPanel) manualPanel.style.display = 'none';
-    if (autoBtn) autoBtn.classList.add('active');
-  } else {
-    modeDisplay.textContent = 'Manual';
-    if (modeIndicator) {
-      modeIndicator.className = 'status-indicator info';
-      modeIndicator.innerHTML = '<div class="status-dot" style="background: #17a2b8;"></div><span>Mode Manual Aktif</span>';
-    }
-    if (modeDescription) {
-      modeDescription.className = 'alert warning';
-      modeDescription.innerHTML = '<span>🎮</span><span><strong>Mode Manual:</strong> Anda mengendalikan pompa secara manual</span>';
-    }
-    if (manualPanel) manualPanel.style.display = 'block';
-    if (manualBtn) manualBtn.classList.add('active');
-  }
-}
-
-// ===============================
 // UPDATE CHART
 // ===============================
 function updateChart() {
+
   if (!chart) return;
-  
+
   const displayData = getDataByTimeRange();
-  
-  chart.data.labels = displayData.map(d => formatTime(d.timestamp));
-  chart.data.datasets[0].data = displayData.map(d => d.sensor1);
-  chart.data.datasets[1].data = displayData.map(d => d.sensor2);
-  chart.data.datasets[2].data = displayData.map(d => d.sensor3);
-  chart.data.datasets[3].data = displayData.map(d => d.moisture);
+
+  chart.data.labels             = displayData.map(d => formatTime(d.timestamp));
+  chart.data.datasets[0].data  = displayData.map(d => d.sensor1);
+  chart.data.datasets[1].data  = displayData.map(d => d.sensor2);
+  chart.data.datasets[2].data  = displayData.map(d => d.sensor3);
+  chart.data.datasets[3].data  = displayData.map(d => d.moisture);
+
   chart.update('none');
 }
 
@@ -369,345 +430,123 @@ function updateChart() {
 // GET DATA BY TIME RANGE
 // ===============================
 function getDataByTimeRange() {
-  const now = new Date();
-  return moistureData.filter(d => {
-    const diff = now - d.timestamp;
-    switch(timeRange) {
-      case 'minute': return diff < 3600000; // 1 hour
-      case 'hour': return diff < 86400000; // 24 hours
-      case 'day': return diff < 2592000000; // 30 days
-      case 'week': return diff < 7776000000; // 90 days
-      default: return true;
-    }
-  });
+
+  const now = Date.now();
+
+  const ranges = {
+    minute: 3600000,     // 1 jam
+    hour:   86400000,    // 24 jam
+    day:    2592000000,  // 30 hari
+    week:   7776000000   // 90 hari
+  };
+
+  const limit = ranges[timeRange] || ranges.minute;
+
+  return moistureData.filter(d => (now - d.timestamp.getTime()) < limit);
 }
 
 // ===============================
-// CHANGE TIME RANGE
+// CHANGE TIME RANGE (dari tombol HTML)
 // ===============================
 window.changeTimeRange = function(range) {
+
   timeRange = range;
+
   document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
-  event.target.classList.add('active');
-  
-  const infoText = document.getElementById('chartInfoText');
-  if (infoText) {
-    switch(range) {
-      case 'minute':
-        infoText.textContent = 'Menampilkan data per menit (1 jam terakhir)';
-        break;
-      case 'hour':
-        infoText.textContent = 'Menampilkan data per jam (24 jam terakhir)';
-        break;
-      case 'day':
-        infoText.textContent = 'Menampilkan data per hari (30 hari terakhir)';
-        break;
-      case 'week':
-        infoText.textContent = 'Menampilkan data per minggu (12 minggu terakhir)';
-        break;
+
+  // Tandai tombol aktif
+  const btns = document.querySelectorAll('.time-btn');
+  btns.forEach(btn => {
+    if (btn.getAttribute('onclick')?.includes(range)) {
+      btn.classList.add('active');
     }
-  }
-  
+  });
+
+  // Update label info chart
+  const labels = {
+    minute: 'per menit (1 jam terakhir)',
+    hour:   'per jam (24 jam terakhir)',
+    day:    'per hari (30 hari terakhir)',
+    week:   'per minggu (3 bulan terakhir)'
+  };
+
+  const infoEl = document.getElementById('chartInfoText');
+  if (infoEl) infoEl.textContent = 'Menampilkan data ' + (labels[range] || '');
+
   updateChart();
 }
 
 // ===============================
 // UPDATE TABLE
 // ===============================
-function updateTable(docs) {
+function updateTable() {
+
   const tbody = document.getElementById('tableBody');
   if (!tbody) return;
-  
+
   tbody.innerHTML = '';
-  
-  if (docs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #6c757d;">Belum ada data</td></tr>';
+
+  if (moistureData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:20px;color:#6c757d;">Belum ada data</td></tr>';
     return;
   }
-  
-  docs.forEach(docSnapshot => {
-    const data = docSnapshot.data();
+
+  const recentData = [...moistureData].reverse().slice(0, 30);
+
+  recentData.forEach(data => {
+
     const row = tbody.insertRow();
-    row.insertCell(0).textContent = formatDateTime(data.timestamp?.toDate());
-    row.insertCell(1).textContent = (data.sensor1 || 0) + '%';
-    row.insertCell(2).textContent = (data.sensor2 || 0) + '%';
-    row.insertCell(3).textContent = (data.sensor3 || 0) + '%';
-    row.insertCell(4).textContent = (data.average || 0) + '%';
-    
+
+    row.insertCell(0).textContent = formatDateTime(data.timestamp);
+    row.insertCell(1).textContent = data.sensor1.toFixed(2) + '%';
+    row.insertCell(2).textContent = data.sensor2.toFixed(2) + '%';
+    row.insertCell(3).textContent = data.sensor3.toFixed(2) + '%';
+    row.insertCell(4).textContent = data.moisture.toFixed(2) + '%';
+
     const pumpCell = row.insertCell(5);
-    pumpCell.textContent = data.pumpStatus || 'OFF';
+    pumpCell.textContent   = data.pumpStatus;
     pumpCell.style.fontWeight = 'bold';
-    pumpCell.style.color = data.pumpStatus === 'ON' ? '#28a745' : '#dc3545';
-    
+    pumpCell.style.color   = data.pumpStatus === 'ON' ? '#28a745' : '#dc3545';
+
     row.insertCell(6).textContent = data.mode === 'otomatis' ? 'Otomatis' : 'Manual';
   });
-}
-
-// ===============================
-// SET MODE
-// ===============================
-window.setMode = async function(mode) {
-  // ============================================
-  // ROLE-BASED ACCESS CONTROL
-  // ============================================
-  const userRole = getUserRole();
-  if (userRole !== 'admin') {
-    alert('⚠️ Maaf, hanya Admin yang dapat mengubah mode sistem!');
-    return;
-  }
-  
-  try {
-    // Jika menggunakan Firebase real
-    // const sensorDocRef = doc(db, 'sensorData', 'current');
-    // await setDoc(sensorDocRef, { mode: mode }, { merge: true });
-    
-    // ============================================
-    // UNTUK DUMMY DATA (sementara)
-    // ============================================
-    currentMode = mode;
-    updateModeDisplay();
-    console.log('Mode changed to:', mode);
-    
-  } catch (error) {
-    console.error('Error setting mode:', error);
-    alert('Gagal mengubah mode: ' + error.message);
-  }
-}
-
-// ===============================
-// CONTROL PUMP
-// ===============================
-window.controlPump = async function(status) {
-  if (currentMode !== 'manual') {
-    alert('⚠️ Pompa hanya bisa dikontrol manual saat Mode Manual aktif!');
-    return;
-  }
-  
-  // ============================================
-  // ROLE-BASED ACCESS CONTROL
-  // ============================================
-  const userRole = getUserRole();
-  if (userRole !== 'admin') {
-    alert('⚠️ Maaf, hanya Admin yang dapat mengontrol pompa!');
-    return;
-  }
-  
-  try {
-    // Jika menggunakan Firebase real
-    // const sensorDocRef = doc(db, 'sensorData', 'current');
-    // await setDoc(sensorDocRef, { 
-    //   pumpStatus: status,
-    //   lastUpdate: serverTimestamp()
-    // }, { merge: true });
-    
-    // ============================================
-    // UNTUK DUMMY DATA (sementara)
-    // ============================================
-    pumpStatus = status;
-    updatePumpDisplay();
-    console.log('Pump status changed to:', status);
-    
-  } catch (error) {
-    console.error('Error controlling pump:', error);
-    alert('Gagal mengontrol pompa: ' + error.message);
-  }
 }
 
 // ===============================
 // EXPORT TO EXCEL
 // ===============================
 window.exportToExcel = function() {
-  // ============================================
-  // ROLE-BASED ACCESS CONTROL
-  // ============================================
-  const userRole = getUserRole();
-  if (userRole !== 'admin') {
-    alert('⚠️ Maaf, hanya Admin yang dapat mengekspor data ke Excel!');
+
+  if (getUserRole() !== 'admin') {
+    alert('⚠️ Hanya Admin yang dapat export data!');
     return;
   }
-  
-  const ws_data = [['Waktu', 'Sensor 1 (%)', 'Sensor 2 (%)', 'Sensor 3 (%)', 'Rata-rata (%)', 'Status Pompa', 'Mode']];
-  
-  moistureData.forEach(data => {
+
+  const ws_data = [['Waktu','Sensor 1 (%)','Sensor 2 (%)','Sensor 3 (%)','Rata-rata (%)','Status Pompa','Mode']];
+
+  [...moistureData].reverse().slice(0, 100).forEach(d => {
     ws_data.push([
-      formatDateTime(data.timestamp),
-      data.sensor1,
-      data.sensor2,
-      data.sensor3,
-      data.moisture,
-      data.pumpStatus,
-      data.mode === 'otomatis' ? 'Otomatis' : 'Manual'
+      formatDateTime(d.timestamp),
+      d.sensor1, d.sensor2, d.sensor3, d.moisture,
+      d.pumpStatus,
+      d.mode === 'otomatis' ? 'Otomatis' : 'Manual'
     ]);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(ws_data);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Data Kelembaban");
-  
-  const fileName = 'data_kelembaban_tanah_' + new Date().toISOString().split('T')[0] + '.xlsx';
-  XLSX.writeFile(wb, fileName);
-  console.log('Data exported to Excel:', fileName);
+  XLSX.utils.book_append_sheet(wb, ws, 'Data Kelembaban');
+  XLSX.writeFile(wb, 'data_kelembaban_' + new Date().toISOString().split('T')[0] + '.xlsx');
 }
 
 // ===============================
-// ⚠️ DATA DUMMY UNTUK TESTING
-// ===============================
-// TODO: HAPUS FUNGSI INI setelah sensor ESP32 sudah terhubung
-function loadDummyData() {
-  console.log('🔄 Loading dummy data...');
-  
-  // ============================================
-  // DUMMY CURRENT SENSOR DATA
-  // ============================================
-  const dummyCurrentData = {
-    sensor1: 45,
-    sensor2: 52,
-    sensor3: 48,
-    average: 48.33,
-    pumpStatus: 'OFF',
-    mode: 'otomatis',
-    lastUpdate: new Date()
-  };
-  
-  // Update dashboard dengan dummy data
-  updateDashboard(dummyCurrentData);
-  
-  // ============================================
-  // DUMMY HISTORY DATA (50 data points)
-  // ============================================
-  moistureData = [];
-  const now = new Date();
-  
-  // Generate 50 data points dengan timestamp berbeda
-  for (let i = 49; i >= 0; i--) {
-    const timestamp = new Date(now.getTime() - (i * 2 * 60 * 1000)); // Setiap 2 menit
-    
-    // Random sensor values dengan variasi realistis
-    const baseValue = 45 + Math.random() * 20; // 45-65%
-    const sensor1 = Math.round(baseValue + (Math.random() - 0.5) * 10);
-    const sensor2 = Math.round(baseValue + (Math.random() - 0.5) * 10);
-    const sensor3 = Math.round(baseValue + (Math.random() - 0.5) * 10);
-    const average = Math.round((sensor1 + sensor2 + sensor3) / 3 * 100) / 100;
-    
-    // Tentukan status pompa berdasarkan kelembaban
-    let pumpStatus = 'OFF';
-    if (average < 30) {
-      pumpStatus = 'ON';
-    }
-    
-    moistureData.push({
-      timestamp: timestamp,
-      sensor1: Math.max(0, Math.min(100, sensor1)), // Clamp 0-100
-      sensor2: Math.max(0, Math.min(100, sensor2)),
-      sensor3: Math.max(0, Math.min(100, sensor3)),
-      moisture: Math.max(0, Math.min(100, average)),
-      pumpStatus: pumpStatus,
-      mode: 'otomatis'
-    });
-  }
-  
-  // Update chart dengan dummy data
-  updateChart();
-  
-  // Update table dengan dummy data
-  updateTableWithDummyData();
-  
-  // ============================================
-  // AUTO-UPDATE DUMMY DATA (simulasi real-time)
-  // ============================================
-  // Update sensor values setiap 5 detik untuk simulasi
-  setInterval(() => {
-    // Random variations
-    const variation = (Math.random() - 0.5) * 5; // ±2.5%
-    
-    dummyCurrentData.sensor1 = Math.max(0, Math.min(100, dummyCurrentData.sensor1 + variation));
-    dummyCurrentData.sensor2 = Math.max(0, Math.min(100, dummyCurrentData.sensor2 + variation));
-    dummyCurrentData.sensor3 = Math.max(0, Math.min(100, dummyCurrentData.sensor3 + variation));
-    dummyCurrentData.average = Math.round((dummyCurrentData.sensor1 + dummyCurrentData.sensor2 + dummyCurrentData.sensor3) / 3 * 100) / 100;
-    
-    // Update pump status
-    if (dummyCurrentData.mode === 'otomatis') {
-      if (dummyCurrentData.average < 30) {
-        dummyCurrentData.pumpStatus = 'ON';
-      } else if (dummyCurrentData.average > 70) {
-        dummyCurrentData.pumpStatus = 'OFF';
-      }
-    }
-    
-    dummyCurrentData.lastUpdate = new Date();
-    
-    // Update dashboard
-    updateDashboard(dummyCurrentData);
-    
-    // Add to history data
-    moistureData.push({
-      timestamp: new Date(),
-      sensor1: Math.round(dummyCurrentData.sensor1),
-      sensor2: Math.round(dummyCurrentData.sensor2),
-      sensor3: Math.round(dummyCurrentData.sensor3),
-      moisture: dummyCurrentData.average,
-      pumpStatus: dummyCurrentData.pumpStatus,
-      mode: dummyCurrentData.mode
-    });
-    
-    // Keep only last 100 data points
-    if (moistureData.length > 100) {
-      moistureData.shift();
-    }
-    
-    // Update chart
-    updateChart();
-    
-  }, 5000); // Update setiap 5 detik
-  
-  console.log('✅ Dummy data loaded successfully');
-  console.log('📊 Total dummy history data:', moistureData.length);
-}
-
-// ===============================
-// UPDATE TABLE WITH DUMMY DATA
-// ===============================
-function updateTableWithDummyData() {
-  const tbody = document.getElementById('tableBody');
-  if (!tbody) return;
-  
-  tbody.innerHTML = '';
-  
-  if (moistureData.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #6c757d;">Belum ada data</td></tr>';
-    return;
-  }
-  
-  // Show last 20 entries in table
-  const recentData = [...moistureData].reverse().slice(0, 20);
-  
-  recentData.forEach(data => {
-    const row = tbody.insertRow();
-    row.insertCell(0).textContent = formatDateTime(data.timestamp);
-    row.insertCell(1).textContent = data.sensor1 + '%';
-    row.insertCell(2).textContent = data.sensor2 + '%';
-    row.insertCell(3).textContent = data.sensor3 + '%';
-    row.insertCell(4).textContent = data.moisture + '%';
-    
-    const pumpCell = row.insertCell(5);
-    pumpCell.textContent = data.pumpStatus;
-    pumpCell.style.fontWeight = 'bold';
-    pumpCell.style.color = data.pumpStatus === 'ON' ? '#28a745' : '#dc3545';
-    
-    row.insertCell(6).textContent = data.mode === 'otomatis' ? 'Otomatis' : 'Manual';
-  });
-}
-
-// ===============================
-// HANDLE LOGOUT
+// LOGOUT
 // ===============================
 window.handleLogout = async function() {
   if (confirm('Yakin ingin logout?')) {
     try {
-      if (unsubscribeSensor) unsubscribeSensor();
       await logout();
     } catch (error) {
-      console.error('Logout error:', error);
       alert('Gagal logout: ' + error.message);
     }
   }
@@ -725,12 +564,3 @@ function formatDateTime(date) {
   if (!date) return '--';
   return date.toLocaleString('id-ID');
 }
-
-// ===============================
-// CLEANUP ON PAGE UNLOAD
-// ===============================
-window.addEventListener('beforeunload', () => {
-  if (unsubscribeSensor) {
-    unsubscribeSensor();
-  }
-});
